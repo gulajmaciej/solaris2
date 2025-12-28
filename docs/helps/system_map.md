@@ -12,7 +12,7 @@ Agent Goals/Priorities -----> Conflict Matrix -----> Tension -----> Drift
     |                               |            Ocean Escalation   Earth Pressure
     |                               |                  |             |
     |                               v                  v             v
-    |                        Planning (Agent Plans)   Ocean State   Governance Constraints
+    |                        Planning (Agent Plans)   Ocean State ----+
     |                               |                                  |
     v                               v                                  |
 Action Execution --------------> GameState ----------------------------+
@@ -27,3 +27,4 @@ Notes:
 - The world evolves deterministically (actions, tension, pressure).
 - LLM agents only interpret; they do not change the world directly.
 - Governance feeds back into the next turn by constraining decisions.
+- Ocean state feeds back into tension (ocean feedback).

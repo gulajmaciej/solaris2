@@ -22,6 +22,16 @@ ACTIVITY_COEFF = 0.02
 TENSION_RELIEF_AMOUNT = 0.05
 MIN_TENSION = 0.15
 
+# --- fatigue/stress coupling ---
+FATIGUE_STRESS_COEFF = 0.02
+
+# --- stress/ocean feedback into tension ---
+STRESS_TENSION_COEFF = 0.02
+OCEAN_TENSION_COEFF = 0.02
+
+# --- stress influence on drift ---
+STRESS_DRIFT_COEFF = 0.01
+
 
 def _goals_are_stabilizing(registry: AgentRegistry) -> bool:
     """
@@ -58,6 +68,7 @@ def run_turn(
     state.flags["ocean_debug"] = []
     state.flags["tension_debug"] = []
     state.flags["earth_debug"] = []
+    state.flags["drift_debug"] = []
 
     # 0. apply institutional constraints
     constrained_decisions = []
@@ -94,11 +105,44 @@ def run_turn(
     # 3. deterministic execution
     engine.execute_plans(state=state, plans=plans)
 
+    # 3.5 fatigue -> stress feedback
+    state.crew.stress += state.crew.fatigue * FATIGUE_STRESS_COEFF
+    state.crew.stress = max(0.0, min(1.0, state.crew.stress))
+
     # 4. tension + drift (base increase)
     next_tension = update_tension_and_drift(
         registry=registry,
         current_tension=current_tension,
     )
+
+    # 4.1 stress and ocean feedback into tension
+    stress_delta = state.crew.stress * STRESS_TENSION_COEFF
+    if stress_delta > 0:
+        prev = next_tension
+        next_tension = max(0.0, min(1.0, next_tension + stress_delta))
+        state.flags["tension_debug"].append(
+            {
+                "previous": round(prev, 3),
+                "next": round(next_tension, 3),
+                "delta": round(next_tension - prev, 3),
+                "reason": "stress_feedback",
+            }
+        )
+
+    ocean_delta = (
+        (state.ocean.activity + state.ocean.instability) / 2.0
+    ) * OCEAN_TENSION_COEFF
+    if ocean_delta > 0:
+        prev = next_tension
+        next_tension = max(0.0, min(1.0, next_tension + ocean_delta))
+        state.flags["tension_debug"].append(
+            {
+                "previous": round(prev, 3),
+                "next": round(next_tension, 3),
+                "delta": round(next_tension - prev, 3),
+                "reason": "ocean_feedback",
+            }
+        )
 
     # 4.5 world reaction to tension (OCEAN ESCALATION)
     ocean_escalated = False
@@ -157,6 +201,28 @@ def run_turn(
                 "reason": "agent_goal_conflicts_and_drift",
             }
         )
+
+    # 4.7 stress -> drift influence
+    if state.crew.stress > 0:
+        for agent_id in registry.runtime:
+            prev = registry.runtime[agent_id].drift
+            registry.runtime[agent_id].drift = min(
+                1.0,
+                registry.runtime[agent_id].drift
+                + state.crew.stress * STRESS_DRIFT_COEFF,
+            )
+            state.flags["drift_debug"].append(
+                {
+                    "agent_id": agent_id,
+                    "previous": round(prev, 3),
+                    "next": round(registry.runtime[agent_id].drift, 3),
+                    "delta": round(
+                        registry.runtime[agent_id].drift - prev,
+                        3,
+                    ),
+                    "reason": "stress_feedback",
+                }
+            )
 
     # 5. earth pressure update
     prev_pressure = earth.pressure

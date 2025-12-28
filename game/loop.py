@@ -75,6 +75,14 @@ def main():
                     f"reason: {d['reason']} | tension={d['tension']}"
                 )
 
+        if result.state.flags.get("drift_debug"):
+            print("\n--- DRIFT DEBUG ---")
+            for d in result.state.flags["drift_debug"]:
+                print(
+                    f"{d['agent_id']} {d['previous']} -> {d['next']} "
+                    f"({d['delta']:+}) | reason: {d['reason']}"
+                )
+
         # --- END CONDITIONS ---
         if result.ending:
             print("\n=== END OF SIMULATION ===")
