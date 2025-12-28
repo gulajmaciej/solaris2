@@ -11,6 +11,8 @@ class EarthState:
     with memory and delayed response (hysteresis).
     """
     pressure: float = 0.2
+    high_tension_streak: int = 0
+    low_tension_streak: int = 0
 
 
 # --- tuning constants ---
@@ -40,11 +42,9 @@ def update_earth_pressure(
     Earth reacts to sustained trends, not single-turn impulses.
     """
 
-    # --- init memory in registry flags ---
-    flags = registry.flags
-
-    high_streak = flags.get("earth_high_tension_streak", 0)
-    low_streak = flags.get("earth_low_tension_streak", 0)
+    # --- init memory in Earth state ---
+    high_streak = earth.high_tension_streak
+    low_streak = earth.low_tension_streak
 
     # --- update streaks based on tension ---
     if tension >= HIGH_TENSION_THRESHOLD:
@@ -81,5 +81,5 @@ def update_earth_pressure(
     earth.pressure = max(0.0, min(1.0, earth.pressure))
 
     # --- persist memory ---
-    flags["earth_high_tension_streak"] = high_streak
-    flags["earth_low_tension_streak"] = low_streak
+    earth.high_tension_streak = high_streak
+    earth.low_tension_streak = low_streak

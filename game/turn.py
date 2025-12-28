@@ -62,9 +62,17 @@ def run_turn(
     # 0. apply institutional constraints
     constrained_decisions = []
     for d in decisions:
+        original_goal = d.goal
+        original_priority = d.priority
         constrained_decisions.append(
             apply_earth_constraints(decision=d, earth=earth)
         )
+        if d.goal != original_goal or d.priority != original_priority:
+            print(
+                "[EARTH] Constraints applied to "
+                f"{d.agent_id}: goal {original_goal.name} -> {d.goal.name}, "
+                f"priority {original_priority.name} -> {d.priority.name}"
+            )
 
     # 1. apply (possibly constrained) player decisions
     for d in constrained_decisions:
@@ -164,6 +172,7 @@ def run_turn(
             "next": round(earth.pressure, 3),
             "delta": round(earth.pressure - prev_pressure, 3),
             "reason": "tension_and_avg_drift",
+            "tension": round(next_tension, 3),
         }
     )
 
