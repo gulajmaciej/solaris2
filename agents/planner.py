@@ -6,7 +6,7 @@ from langchain_ollama import ChatOllama
 
 from core.state import GameState
 from agents.config import AgentGoal, PriorityLevel
-`
+
 
 class PlannedAction(Enum):
     """

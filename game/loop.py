@@ -10,7 +10,10 @@ from agents.config import (
     PriorityLevel,
 )
 
-from agents.instrument_specialist import observe as observe_instruments
+from agents.instrument_specialist import (
+    observe as observe_instruments,
+    debug_render as debug_instrument,
+)
 from agents.crew_officer import observe as observe_crew
 
 from game.cli import prompt_decision
@@ -19,11 +22,13 @@ from game.endings import check_end_conditions
 
 
 def main():
+    # --- INITIAL STATE ---
     state = GameState.initial()
-    tension = 0.0
+    engine = GameEngine()
+
     earth = EarthState()
     solaris = SolarisState()
-    engine = GameEngine()
+    tension = 0.0
 
     registry = AgentRegistry()
     registry.register_agent(
@@ -41,19 +46,22 @@ def main():
         ),
     )
 
+    # --- MAIN LOOP ---
     while True:
         print("\n==============================")
         print(f"TURN {state.turn}")
         print("==============================")
 
+        # --- PLAYER DECISIONS ---
         print("\n--- PLAYER DECISIONS ---")
         decisions = []
         for agent_id in registry.configs:
-            d = prompt_decision(agent_id=agent_id, registry=registry)
-            if d:
-                decisions.append(d)
+            decision = prompt_decision(agent_id=agent_id, registry=registry)
+            if decision:
+                decisions.append(decision)
 
-        print("\n--- AGENT EXECUTION ---")
+        # --- SYSTEM EXECUTION ---
+        print("\n--- SYSTEM EXECUTION ---")
         tension = run_turn(
             state=state,
             registry=registry,
@@ -69,32 +77,65 @@ def main():
             earth_pressure=earth.pressure,
         )
 
+        # --- OBSERVATIONS ---
         print("\n--- OBSERVATIONS ---")
-        print(
-            "INSTRUMENT:",
-            observe_instruments(
-                state,
-                registry.get_runtime("instrument_specialist").drift,
-                solaris,
-            ),
-        )
-        print(
-            "CREW:",
-            observe_crew(
-                state,
-                registry.get_runtime("crew_officer").drift,
-                solaris,
-            ),
-        )
 
+        instrument_report = observe_instruments(
+            state,
+            registry.get_runtime("instrument_specialist").drift,
+            solaris,
+        )
+        print("\n[INSTRUMENT SPECIALIST]")
+        print(instrument_report)
+
+        crew_report = observe_crew(
+            state,
+            registry.get_runtime("crew_officer").drift,
+            solaris,
+        )
+        print("\n[CREW OFFICER]")
+        print(crew_report)
+
+        # --- DEBUG VIEW (LANGGRAPH) ---
+        debug_instrument()
+
+        # --- SYSTEM FEEDBACK ---
         print("\n--- SYSTEM FEEDBACK ---")
-        print("TENSION:", round(tension, 3))
-        print("EARTH PRESSURE:", round(earth.pressure, 3))
-        print("SOLARIS INTENSITY:", round(solaris.intensity, 3))
-        print("DRIFT:")
-        for aid, rt in registry.runtime.items():
-            print(f"  {aid}: {rt.drift:.3f}")
+        print(f"Tension: {round(tension, 3)}")
+        print(f"Earth pressure: {round(earth.pressure, 3)}")
+        print(f"Solaris intensity: {round(solaris.intensity, 3)}")
 
+        print("\nAgent drift levels:")
+        for agent_id, runtime in registry.runtime.items():
+            print(f"  {agent_id}: {round(runtime.drift, 3)}")
+
+        # --- DEBUG: WHY SYSTEM CHANGED ---
+        if state.flags.get("tension_debug"):
+            print("\n--- TENSION DEBUG ---")
+            for d in state.flags["tension_debug"]:
+                print(
+                    f"Tension {d['previous']} → {d['next']} "
+                    f"({d['delta']:+}) | reason: {d['reason']}"
+                )
+
+        if state.flags.get("earth_debug"):
+            print("\n--- EARTH PRESSURE DEBUG ---")
+            for d in state.flags["earth_debug"]:
+                print(
+                    f"Earth pressure {d['previous']} → {d['next']} "
+                    f"({d['delta']:+}) | reason: {d['reason']} "
+                    f"| tension={d['tension']}"
+                )
+
+        if state.flags.get("ocean_debug"):
+            print("\n--- OCEAN DEBUG ---")
+            for d in state.flags["ocean_debug"]:
+                print(
+                    f"{d['parameter']} {d['delta']:+} | "
+                    f"reason: {d['reason']} | tension={d['tension']}"
+                )
+
+        # --- END CONDITIONS ---
         ending = check_end_conditions(
             state=state,
             registry=registry,
@@ -106,6 +147,8 @@ def main():
             print(f"ENDING: {ending.type.value.replace('_', ' ').title()}")
             print(ending.reason)
             break
+
+        input("\n[ENTER] Next turn...")
 
 
 if __name__ == "__main__":

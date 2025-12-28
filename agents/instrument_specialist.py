@@ -1,41 +1,49 @@
-from langchain_ollama import ChatOllama
-from core.state import GameState
-from core.solaris import SolarisState
+from agents.langgraph_state import InstrumentAgentState
+from agents.langgraph_instrument import build_instrument_graph
 
 
-model = ChatOllama(
-    model="qwen2.5:7b",
-    temperature=0.7,
-)
+_graph = build_instrument_graph()
+_state = InstrumentAgentState()
 
 
-def observe(
-    state: GameState,
-    drift: float,
-    solaris: SolarisState,
-) -> str:
-    prompt = f"""
-You are an instrument specialist observing an alien ocean.
+def observe(state, drift, solaris):
+    global _state
 
-FACTUAL DATA:
-- Ocean activity: {state.ocean.activity}
-- Ocean instability: {state.ocean.instability}
+    result = _graph.invoke(_state)
 
-COGNITIVE CONTEXT:
-- Your personal cognitive drift: {drift:.2f}
-- Solaris distortion field intensity: {solaris.intensity:.2f}
+    # Reconstruct state from LangGraph dict
+    _state = InstrumentAgentState(
+        hypothesis=result.get("hypothesis", _state.hypothesis),
+        confidence=result.get("confidence", _state.confidence),
+        contradictions=result.get("contradictions", _state.contradictions),
+        last_observation=result.get("last_observation", ""),
+        visited_nodes=result.get("visited_nodes", []),
+        last_route=result.get("last_route"),
+    )
 
-RULES:
-- Do NOT invent events.
-- Interpret data through your distorted perception.
-- If distortion is high, your interpretation may feel symbolic, personal, or unsettling.
+    return _state.last_observation
 
-Describe what you observe.
-"""
 
-    response = model.invoke(prompt).content.strip()
+def debug_render() -> None:
+    """
+    Diagnostic-only visualization of the LangGraph agent.
+    """
+    print("\n--- INSTRUMENT AGENT (LangGraph DEBUG) ---")
+    print("Visited nodes:")
+    print("  " + " → ".join(_state.visited_nodes))
 
-    if response.startswith("```"):
-        response = response.replace("```", "").strip()
+    print("\nLast routing decision:")
+    print(f"  { _state.last_route }")
 
-    return response
+    print("\nHypothesis:")
+    print(f"  {_state.hypothesis}")
+
+    print("\nConfidence:")
+    print(f"  {round(_state.confidence, 3)}")
+
+    print("\nContradictions:")
+    print(f"  {_state.contradictions}")
+
+    print("\nLast observation:")
+    print(f"  {_state.last_observation}")
+    print("----------------------------------------")

@@ -1,55 +1,42 @@
-from typing import Optional
+from typing import Type, TypeVar
 
 from agents.config import AgentGoal, PriorityLevel, AgentRegistry
 from game.decision import PlayerDecision
 
-
-GOAL_DESCRIPTIONS = {
-    AgentGoal.MAXIMIZE_ANOMALY_DETECTION: "↑ knowledge, ↑ ocean instability",
-    AgentGoal.STABILIZE_MEASUREMENT_BASELINES: "↓ noise, ↓ anomaly visibility",
-    AgentGoal.REDUCE_DATA_UNCERTAINTY: "↑ confidence, ↑ blind spots",
-    AgentGoal.MINIMIZE_CREW_STRESS: "↓ stress, ↓ information flow",
-    AgentGoal.MAINTAIN_OPERATIONAL_EFFICIENCY: "↑ predictability, ↓ exploration",
-    AgentGoal.PRESERVE_CREW_COHESION: "↑ morale, ↑ conformity",
-}
+T = TypeVar("T")
 
 
-def _choose_enum(enum_cls, current_value):
-    print("[x] keep current")
-    for i, e in enumerate(enum_cls):
-        print(f"[{i}] {e.name.replace('_', ' ').title()}")
-        if e in GOAL_DESCRIPTIONS:
-            print(f"    {GOAL_DESCRIPTIONS[e]}")
+def _choose_enum(enum_cls: Type[T], current: T) -> T:
+    values = list(enum_cls)
 
-    choice = input("> ").strip()
-    if choice.lower() == "x" or choice == "":
-        return current_value
+    while True:
+        print("\nChoose value (press ENTER or '-' to keep current):")
+        for i, v in enumerate(values):
+            marker = " (current)" if v == current else ""
+            print(f"[{i}] {v.name}{marker}")
 
-    idx = int(choice)
-    return list(enum_cls)[idx]
+        choice = input("> ").strip()
+
+        # Keep current value
+        if choice == "" or choice == "-":
+            return current
+
+        # Try numeric choice
+        if choice.isdigit():
+            idx = int(choice)
+            if 0 <= idx < len(values):
+                return values[idx]
+
+        print("Invalid choice. Try again.")
 
 
-def prompt_decision(
-    *,
-    agent_id: str,
-    registry: AgentRegistry,
-) -> Optional[PlayerDecision]:
+def prompt_decision(agent_id: str, registry: AgentRegistry) -> PlayerDecision:
     cfg = registry.get_config(agent_id)
-    rt = registry.get_runtime(agent_id)
 
-    print(f"\nAgent: {agent_id}")
-    print(f"Current goal: {cfg.goal.name.replace('_', ' ').title()}")
-    print(f"Current priority: {cfg.priority.name}")
-    print(f"Drift: {rt.drift:.3f}")
+    print(f"\n--- Decision for agent: {agent_id} ---")
 
-    print("\nChoose new goal:")
     new_goal = _choose_enum(AgentGoal, cfg.goal)
-
-    print("\nChoose new priority:")
     new_priority = _choose_enum(PriorityLevel, cfg.priority)
-
-    if new_goal == cfg.goal and new_priority == cfg.priority:
-        return None
 
     return PlayerDecision(
         agent_id=agent_id,
