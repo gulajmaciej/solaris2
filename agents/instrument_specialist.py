@@ -1,49 +1,80 @@
-from agents.langgraph_state import InstrumentAgentState
+from langgraph.checkpoint.memory import InMemorySaver
+
+from agents.langgraph_state import (
+    InstrumentAgentState,
+    default_instrument_state,
+)
 from agents.langgraph_instrument import build_instrument_graph
 
 
-_graph = build_instrument_graph()
-_state = InstrumentAgentState()
+class InstrumentSpecialistAgent:
+    def __init__(
+        self,
+        *,
+        checkpointer=None,
+        thread_id: str = "instrument_specialist",
+    ) -> None:
+        self._checkpointer = checkpointer or InMemorySaver()
+        self._graph = build_instrument_graph(
+            checkpointer=self._checkpointer,
+        )
+        self._thread_id = thread_id
 
+    def _config(self, *, thread_id: str | None = None) -> dict:
+        return {"configurable": {"thread_id": thread_id or self._thread_id}}
 
-def observe(state, drift, solaris):
-    global _state
+    def _get_state(self, *, thread_id: str | None = None) -> InstrumentAgentState:
+        try:
+            snapshot = self._graph.get_state(self._config(thread_id=thread_id))
+        except Exception:
+            return default_instrument_state()
+        if snapshot and snapshot.values:
+            return snapshot.values
+        return default_instrument_state()
 
-    result = _graph.invoke(_state)
+    def observe(self, state, drift, solaris, *, thread_id: str | None = None) -> str:
+        current = self._get_state(thread_id=thread_id)
+        result = self._graph.invoke(
+            current,
+            config=self._config(thread_id=thread_id),
+        )
+        return result.get("last_observation", "")
 
-    # Reconstruct state from LangGraph dict
-    _state = InstrumentAgentState(
-        hypothesis=result.get("hypothesis", _state.hypothesis),
-        confidence=result.get("confidence", _state.confidence),
-        contradictions=result.get("contradictions", _state.contradictions),
-        last_observation=result.get("last_observation", ""),
-        visited_nodes=result.get("visited_nodes", []),
-        last_route=result.get("last_route"),
-    )
+    def debug_render(self, *, thread_id: str | None = None) -> None:
+        """
+        Diagnostic-only visualization of the LangGraph agent.
+        """
+        state = self._get_state(thread_id=thread_id)
 
-    return _state.last_observation
+        print("\n--- INSTRUMENT AGENT (LangGraph DEBUG) ---")
+        print("Visited nodes:")
+        print("  " + " ƒÅ' ".join(state["visited_nodes"]))
 
+        print("\nLast routing decision:")
+        print(f"  {state['last_route']}")
 
-def debug_render() -> None:
-    """
-    Diagnostic-only visualization of the LangGraph agent.
-    """
-    print("\n--- INSTRUMENT AGENT (LangGraph DEBUG) ---")
-    print("Visited nodes:")
-    print("  " + " → ".join(_state.visited_nodes))
+        print("\nHypothesis:")
+        print(f"  {state['hypothesis']}")
 
-    print("\nLast routing decision:")
-    print(f"  { _state.last_route }")
+        print("\nConfidence:")
+        print(f"  {round(state['confidence'], 3)}")
 
-    print("\nHypothesis:")
-    print(f"  {_state.hypothesis}")
+        print("\nContradictions:")
+        print(f"  {state['contradictions']}")
 
-    print("\nConfidence:")
-    print(f"  {round(_state.confidence, 3)}")
+        print("\nLast observation:")
+        print(f"  {state['last_observation']}")
 
-    print("\nContradictions:")
-    print(f"  {_state.contradictions}")
-
-    print("\nLast observation:")
-    print(f"  {_state.last_observation}")
-    print("----------------------------------------")
+        if (
+            state["crew_confidence_delta"] != 0.0
+            or state["crew_contradiction_delta"] != 0
+        ):
+            print("\nCrew context:")
+            print(
+                "  "
+                f"stress={state['crew_stress']:.2f}, "
+                f"fatigue={state['crew_fatigue']:.2f}, "
+                f"confidence_delta={state['crew_confidence_delta']:+.4f}, "
+                f"contradiction_delta={state['crew_contradiction_delta']:+d}"
+            )
+        print("----------------------------------------")

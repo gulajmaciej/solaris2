@@ -27,7 +27,7 @@ FATIGUE_STRESS_COEFF = 0.02
 
 # --- stress/ocean feedback into tension ---
 STRESS_TENSION_COEFF = 0.02
-OCEAN_TENSION_COEFF = 0.02
+OCEAN_TENSION_COEFF = 0.05
 
 # --- stress influence on drift ---
 STRESS_DRIFT_COEFF = 0.01

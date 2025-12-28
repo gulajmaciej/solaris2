@@ -1,17 +1,57 @@
-from dataclasses import dataclass, field
-from typing import List
+from typing import List, TypedDict
 
 
-@dataclass
-class InstrumentAgentState:
+class InstrumentAgentState(TypedDict):
     """
     Explicit cognitive state of the instrument specialist.
     """
-    hypothesis: str = "No coherent pattern detected"
-    confidence: float = 0.3
-    contradictions: int = 0
-    last_observation: str = ""
+    hypothesis: str
+    confidence: float
+    contradictions: int
+    last_observation: str
 
     # --- DEBUG / TRACE ---
-    visited_nodes: List[str] = field(default_factory=list)
-    last_route: str | None = None
+    visited_nodes: List[str]
+    last_route: str | None
+    crew_stress: float
+    crew_fatigue: float
+    crew_confidence_delta: float
+    crew_contradiction_delta: int
+
+
+def default_instrument_state() -> InstrumentAgentState:
+    return {
+        "hypothesis": "No coherent pattern detected",
+        "confidence": 0.3,
+        "contradictions": 0,
+        "last_observation": "",
+        "visited_nodes": [],
+        "last_route": None,
+        "crew_stress": 0.0,
+        "crew_fatigue": 0.0,
+        "crew_confidence_delta": 0.0,
+        "crew_contradiction_delta": 0,
+    }
+
+
+class CrewOfficerState(TypedDict):
+    """
+    Explicit cognitive state of the crew officer.
+    """
+    crew_stress: float
+    crew_fatigue: float
+    drift: float
+    solaris_intensity: float
+    last_observation: str
+    visited_nodes: List[str]
+
+
+def default_crew_state() -> CrewOfficerState:
+    return {
+        "crew_stress": 0.0,
+        "crew_fatigue": 0.0,
+        "drift": 0.0,
+        "solaris_intensity": 0.0,
+        "last_observation": "",
+        "visited_nodes": [],
+    }

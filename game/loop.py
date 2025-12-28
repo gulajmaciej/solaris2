@@ -1,11 +1,13 @@
-from agents.instrument_specialist import debug_render as debug_instrument
+from datetime import datetime, UTC
 
 from game.cli import prompt_decision
 from game.simulation import SimulationRunner
 
 
 def main():
-    runner = SimulationRunner()
+    thread_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    print(f"\n[SESSION] thread_id: {thread_id}")
+    runner = SimulationRunner(thread_id=thread_id)
 
     # --- MAIN LOOP ---
     while True:
@@ -37,7 +39,13 @@ def main():
 
         # --- DEBUG VIEW (LANGGRAPH) ---
         if "instrument_specialist" in runner.registry.configs:
-            debug_instrument()
+            runner.instrument_agent.debug_render(
+                thread_id=f"{runner.thread_id}:instrument_specialist"
+            )
+        if "crew_officer" in runner.registry.configs:
+            runner.crew_agent.debug_render(
+                thread_id=f"{runner.thread_id}:crew_officer"
+            )
 
         # --- SYSTEM FEEDBACK ---
         print("\n--- SYSTEM FEEDBACK ---")

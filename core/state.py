@@ -20,7 +20,6 @@ class CrewState:
 
 @dataclass
 class StationState:
-    integrity: float = 1.0
     power_level: float = 0.95
 
 

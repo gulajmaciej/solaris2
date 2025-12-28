@@ -5,6 +5,8 @@ from agents.config import AgentGoal
 # Conflict scale:
 # 0 = none, 1 = soft, 2 = structural, 3 = critical
 
+CONFLICT_SCALE = 0.6
+
 CONFLICT_MATRIX: Dict[Tuple[AgentGoal, AgentGoal], int] = {
     # Instrument Specialist vs Crew Officer
     (AgentGoal.MAXIMIZE_ANOMALY_DETECTION, AgentGoal.MINIMIZE_CREW_STRESS): 3,
@@ -21,12 +23,12 @@ CONFLICT_MATRIX: Dict[Tuple[AgentGoal, AgentGoal], int] = {
 }
 
 
-def conflict_strength(goal_a: AgentGoal, goal_b: AgentGoal) -> int:
+def conflict_strength(goal_a: AgentGoal, goal_b: AgentGoal) -> float:
     """
     Symmetric conflict lookup.
     """
     if (goal_a, goal_b) in CONFLICT_MATRIX:
-        return CONFLICT_MATRIX[(goal_a, goal_b)]
+        return CONFLICT_MATRIX[(goal_a, goal_b)] * CONFLICT_SCALE
     if (goal_b, goal_a) in CONFLICT_MATRIX:
-        return CONFLICT_MATRIX[(goal_b, goal_a)]
-    return 0
+        return CONFLICT_MATRIX[(goal_b, goal_a)] * CONFLICT_SCALE
+    return 0.0

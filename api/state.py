@@ -9,6 +9,8 @@ from agents.config import (
     AgentGoal,
     PriorityLevel,
 )
+from agents.instrument_specialist import InstrumentSpecialistAgent
+from agents.crew_officer import CrewOfficerAgent
 
 
 class GameSession:
@@ -20,6 +22,7 @@ class GameSession:
     """
 
     def __init__(self):
+        self.thread_id = "api"
         self.state = GameState.initial()
         self.tension = 0.0
         self.earth = EarthState()
@@ -40,6 +43,13 @@ class GameSession:
                 goal=AgentGoal.MINIMIZE_CREW_STRESS,
                 priority=PriorityLevel.MEDIUM,
             ),
+        )
+
+        self.instrument_agent = InstrumentSpecialistAgent(
+            thread_id=f"{self.thread_id}:instrument_specialist"
+        )
+        self.crew_agent = CrewOfficerAgent(
+            thread_id=f"{self.thread_id}:crew_officer"
         )
 
 

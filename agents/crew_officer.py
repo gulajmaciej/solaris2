@@ -1,41 +1,69 @@
-from langchain_ollama import ChatOllama
+from langgraph.checkpoint.memory import InMemorySaver
+
+from agents.langgraph_state import CrewOfficerState, default_crew_state
+from agents.langgraph_crew import build_crew_graph
 from core.state import GameState
 from core.solaris import SolarisState
 
 
-model = ChatOllama(
-    model="qwen2.5:7b",
-    temperature=0.6,
-)
+class CrewOfficerAgent:
+    def __init__(
+        self,
+        *,
+        checkpointer=None,
+        thread_id: str = "crew_officer",
+    ) -> None:
+        self._checkpointer = checkpointer or InMemorySaver()
+        self._graph = build_crew_graph(checkpointer=self._checkpointer)
+        self._thread_id = thread_id
 
+    def _config(self, *, thread_id: str | None = None) -> dict:
+        return {"configurable": {"thread_id": thread_id or self._thread_id}}
 
-def observe(
-    state: GameState,
-    drift: float,
-    solaris: SolarisState,
-) -> str:
-    prompt = f"""
-You are a crew officer assessing human condition aboard a remote station.
+    def _get_state(self, *, thread_id: str | None = None) -> CrewOfficerState:
+        try:
+            snapshot = self._graph.get_state(self._config(thread_id=thread_id))
+        except Exception:
+            return default_crew_state()
+        if snapshot and snapshot.values:
+            return snapshot.values
+        return default_crew_state()
 
-FACTUAL DATA:
-- Crew stress level: {state.crew.stress}
-- Crew fatigue level: {state.crew.fatigue}
+    def observe(
+        self,
+        state: GameState,
+        drift: float,
+        solaris: SolarisState,
+        *,
+        thread_id: str | None = None,
+    ) -> str:
+        current = self._get_state(thread_id=thread_id)
+        current["crew_stress"] = state.crew.stress
+        current["crew_fatigue"] = state.crew.fatigue
+        current["drift"] = drift
+        current["solaris_intensity"] = solaris.intensity
 
-COGNITIVE CONTEXT:
-- Your personal cognitive drift: {drift:.2f}
-- Solaris distortion field intensity: {solaris.intensity:.2f}
+        result = self._graph.invoke(
+            current,
+            config=self._config(thread_id=thread_id),
+        )
+        return result.get("last_observation", "")
 
-RULES:
-- Do NOT invent new crew members.
-- Do NOT describe physical hallucinations directly.
-- Let Solaris subtly influence emotional interpretation.
+    def debug_render(self, *, thread_id: str | None = None) -> None:
+        state = self._get_state(thread_id=thread_id)
 
-Describe the crew condition.
-"""
+        print("\n--- CREW OFFICER (LangGraph DEBUG) ---")
+        print("Visited nodes:")
+        print("  " + " ƒÅ' ".join(state["visited_nodes"]))
 
-    response = model.invoke(prompt).content.strip()
+        print("\nCrew snapshot:")
+        print(f"  stress={state['crew_stress']:.2f}")
+        print(f"  fatigue={state['crew_fatigue']:.2f}")
 
-    if response.startswith("```"):
-        response = response.replace("```", "").strip()
+        print("\nCognitive context:")
+        print(f"  drift={state['drift']:.2f}")
+        print(f"  solaris_intensity={state['solaris_intensity']:.2f}")
 
-    return response
+        print("\nLast observation:")
+        print(f"  {state['last_observation']}")
+        print("----------------------------------------")

@@ -1,6 +1,8 @@
 from typing import Dict, Any
 
-from api.state import SESSION
+def _get_session():
+    from api.state import SESSION
+    return SESSION
 
 
 class MCPTool:
@@ -26,11 +28,12 @@ class ReadSystemState(MCPTool):
         }
 
     def execute(self, arguments):
+        session = _get_session()
         return {
-            "turn": SESSION.state.turn,
-            "tension": SESSION.tension,
-            "earth_pressure": SESSION.earth.pressure,
-            "solaris_intensity": SESSION.solaris.intensity,
+            "turn": session.state.turn,
+            "tension": session.tension,
+            "earth_pressure": session.earth.pressure,
+            "solaris_intensity": session.solaris.intensity,
         }
 
 
@@ -45,9 +48,10 @@ class ReadOceanState(MCPTool):
         }
 
     def execute(self, arguments):
+        session = _get_session()
         return {
-            "activity": SESSION.state.ocean.activity,
-            "instability": SESSION.state.ocean.instability,
+            "activity": session.state.ocean.activity,
+            "instability": session.state.ocean.instability,
         }
 
 
@@ -62,9 +66,10 @@ class ReadCrewState(MCPTool):
         }
 
     def execute(self, arguments):
+        session = _get_session()
         return {
-            "stress": SESSION.state.crew.stress,
-            "fatigue": SESSION.state.crew.fatigue,
+            "stress": session.state.crew.stress,
+            "fatigue": session.state.crew.fatigue,
         }
 
 
@@ -88,7 +93,8 @@ class FlagEvent(MCPTool):
         }
 
     def execute(self, arguments):
-        SESSION.state.flags[arguments["key"]] = arguments["value"]
+        session = _get_session()
+        session.state.flags[arguments["key"]] = arguments["value"]
         return {"status": "ok"}
 
 

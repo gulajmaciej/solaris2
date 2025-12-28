@@ -13,8 +13,6 @@ from game.turn import run_turn
 from game.decision import PlayerDecision
 from game.endings import check_end_conditions
 
-from agents.instrument_specialist import observe as observe_instruments
-from agents.crew_officer import observe as observe_crew
 from core.solaris import update_solaris_intensity
 
 
@@ -51,18 +49,20 @@ def run_turn_endpoint(payload: TurnRequest):
     reports = [
         AgentReport(
             agent_id="instrument_specialist",
-            text=observe_instruments(
+            text=SESSION.instrument_agent.observe(
                 SESSION.state,
                 SESSION.registry.get_runtime("instrument_specialist").drift,
                 SESSION.solaris,
+                thread_id=f"{SESSION.thread_id}:instrument_specialist",
             ),
         ),
         AgentReport(
             agent_id="crew_officer",
-            text=observe_crew(
+            text=SESSION.crew_agent.observe(
                 SESSION.state,
                 SESSION.registry.get_runtime("crew_officer").drift,
                 SESSION.solaris,
+                thread_id=f"{SESSION.thread_id}:crew_officer",
             ),
         ),
     ]

@@ -4,15 +4,15 @@ from core.conflicts import conflict_strength
 
 
 DECAY = 0.9          # memory of the system
-DRIFT_RATE = 0.05    # how fast agents drift under tension
+DRIFT_RATE = 0.03    # how fast agents drift under tension
 
 
 def priority_factor(p_a: int, p_b: int) -> float:
     if p_a == p_b:
         return 1.0
     if abs(p_a - p_b) == 1:
-        return 1.25
-    return 1.5
+        return 1.1
+    return 1.2
 
 
 def compute_delta_tension(registry: AgentRegistry) -> float:

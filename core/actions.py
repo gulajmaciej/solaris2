@@ -15,15 +15,18 @@ def apply_action(
     if action == PlannedAction.INCREASE_MEASUREMENT_FREQUENCY:
         state.ocean.activity += 0.05
         state.station.power_level -= 0.03
+        state.crew.fatigue += 0.02
 
     elif action == PlannedAction.ADJUST_SENSOR_SENSITIVITY:
         state.ocean.activity += 0.03
         state.ocean.instability += 0.02
         state.station.power_level -= 0.02
+        state.crew.fatigue += 0.01
 
     elif action == PlannedAction.FILTER_DATA_AGGRESSIVELY:
         state.ocean.instability -= 0.04
         state.ocean.activity -= 0.02
+        state.crew.fatigue += 0.005
 
     elif action == PlannedAction.INITIATE_REST_PROTOCOL:
         state.crew.stress -= 0.05
@@ -37,6 +40,7 @@ def apply_action(
     elif action == PlannedAction.ENFORCE_PROCEDURES:
         state.crew.stress += 0.02
         state.station.power_level -= 0.01
+        state.crew.fatigue += 0.01
 
     # --- clamp values ---
     state.ocean.activity = max(0.0, min(1.0, state.ocean.activity))

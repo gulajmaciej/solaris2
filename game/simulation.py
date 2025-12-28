@@ -12,8 +12,8 @@ from agents.config import (
     AgentGoal,
     PriorityLevel,
 )
-from agents.instrument_specialist import observe as observe_instruments
-from agents.crew_officer import observe as observe_crew
+from agents.instrument_specialist import InstrumentSpecialistAgent
+from agents.crew_officer import CrewOfficerAgent
 
 from game.turn import run_turn
 from game.endings import Ending, check_end_conditions
@@ -23,10 +23,7 @@ from game.decision import PlayerDecision
 Observer = Callable[[GameState, float, SolarisState], str]
 
 
-DEFAULT_OBSERVERS: Dict[str, Observer] = {
-    "instrument_specialist": observe_instruments,
-    "crew_officer": observe_crew,
-}
+DEFAULT_OBSERVERS: Dict[str, Observer] = {}
 
 
 @dataclass
@@ -51,6 +48,9 @@ class SimulationRunner:
         registry: AgentRegistry | None = None,
         tension: float = 0.0,
         observers: Dict[str, Observer] | None = None,
+        instrument_agent: InstrumentSpecialistAgent | None = None,
+        crew_agent: CrewOfficerAgent | None = None,
+        thread_id: str = "default",
     ) -> None:
         self.state = state or GameState.initial()
         self.engine = engine or GameEngine()
@@ -58,7 +58,43 @@ class SimulationRunner:
         self.solaris = solaris or SolarisState()
         self.registry = registry or self._default_registry()
         self.tension = tension
-        self.observers = observers or DEFAULT_OBSERVERS
+        self.thread_id = thread_id
+        self.instrument_agent = instrument_agent or InstrumentSpecialistAgent(
+            thread_id=f"{self.thread_id}:instrument_specialist"
+        )
+        self.crew_agent = crew_agent or CrewOfficerAgent(
+            thread_id=f"{self.thread_id}:crew_officer"
+        )
+        base_observers = DEFAULT_OBSERVERS.copy()
+        base_observers["instrument_specialist"] = self._observe_instrument
+        base_observers["crew_officer"] = self._observe_crew
+        self.observers = observers or base_observers
+
+    def _observe_instrument(
+        self,
+        state: GameState,
+        drift: float,
+        solaris: SolarisState,
+    ) -> str:
+        return self.instrument_agent.observe(
+            state,
+            drift,
+            solaris,
+            thread_id=f"{self.thread_id}:instrument_specialist",
+        )
+
+    def _observe_crew(
+        self,
+        state: GameState,
+        drift: float,
+        solaris: SolarisState,
+    ) -> str:
+        return self.crew_agent.observe(
+            state,
+            drift,
+            solaris,
+            thread_id=f"{self.thread_id}:crew_officer",
+        )
 
     def _default_registry(self) -> AgentRegistry:
         registry = AgentRegistry()

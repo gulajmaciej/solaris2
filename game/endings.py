@@ -39,14 +39,14 @@ def check_end_conditions(
         )
 
     # --- Cognitive Collapse ---
-    if tension > 0.9 and avg_drift > 0.7:
+    if tension > 0.95 and avg_drift > 0.8:
         return Ending(
             EndingType.COGNITIVE_COLLAPSE,
             "Conflicting optimizations have destroyed the system's ability to reason coherently.",
         )
 
     # --- Institutional Termination ---
-    if tension > 0.75 and state.turn >= 10:
+    if tension > 0.75 and state.turn >= 50:
         return Ending(
             EndingType.INSTITUTIONAL_TERMINATION,
             "External oversight determines the system is no longer controllable.",

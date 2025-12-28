@@ -19,13 +19,19 @@ ALLOWED_GOALS = {
 }
 
 
-def _choose_enum(enum_cls: Type[T], current: T, *, allowed: set[T] | None = None) -> T:
+def _choose_enum(
+    enum_cls: Type[T],
+    current: T,
+    *,
+    allowed: set[T] | None = None,
+    label: str = "value",
+) -> T:
     values = list(enum_cls)
     if allowed is not None:
         values = [v for v in values if v in allowed]
 
     while True:
-        print("\nChoose value (press ENTER or '-' to keep current):")
+        print(f"\nChoose {label} (press ENTER or '-' to keep current):")
         for i, v in enumerate(values):
             marker = " (current)" if v == current else ""
             print(f"[{i}] {v.name}{marker}")
@@ -51,8 +57,17 @@ def prompt_decision(agent_id: str, registry: AgentRegistry) -> PlayerDecision:
 
     print(f"\n--- Decision for agent: {agent_id} ---")
 
-    new_goal = _choose_enum(AgentGoal, cfg.goal, allowed=allowed_goals)
-    new_priority = _choose_enum(PriorityLevel, cfg.priority)
+    new_goal = _choose_enum(
+        AgentGoal,
+        cfg.goal,
+        allowed=allowed_goals,
+        label="goal",
+    )
+    new_priority = _choose_enum(
+        PriorityLevel,
+        cfg.priority,
+        label="priority",
+    )
 
     return PlayerDecision(
         agent_id=agent_id,
