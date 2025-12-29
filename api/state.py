@@ -3,14 +3,8 @@ from core.engine import GameEngine
 from core.earth import EarthState
 from core.solaris import SolarisState
 
-from agents.config import (
-    AgentRegistry,
-    AgentConfig,
-    AgentGoal,
-    PriorityLevel,
-)
-from agents.instrument_specialist import InstrumentSpecialistAgent
-from agents.crew_officer import CrewOfficerAgent
+from agents.config import AgentRegistry
+from agents.catalog import list_agent_specs
 
 
 class GameSession:
@@ -30,27 +24,15 @@ class GameSession:
         self.engine = GameEngine()
 
         self.registry = AgentRegistry()
-        self.registry.register_agent(
-            "instrument_specialist",
-            AgentConfig(
-                goal=AgentGoal.MAXIMIZE_ANOMALY_DETECTION,
-                priority=PriorityLevel.HIGH,
-            ),
-        )
-        self.registry.register_agent(
-            "crew_officer",
-            AgentConfig(
-                goal=AgentGoal.MINIMIZE_CREW_STRESS,
-                priority=PriorityLevel.MEDIUM,
-            ),
-        )
+        for spec in list_agent_specs():
+            self.registry.register_agent(spec.agent_id, spec.default_config)
 
-        self.instrument_agent = InstrumentSpecialistAgent(
-            thread_id=f"{self.thread_id}:instrument_specialist"
-        )
-        self.crew_agent = CrewOfficerAgent(
-            thread_id=f"{self.thread_id}:crew_officer"
-        )
+        self.agents = {
+            spec.agent_id: spec.agent_cls(
+                thread_id=f"{self.thread_id}:{spec.agent_id}"
+            )
+            for spec in list_agent_specs()
+        }
 
 
 # SINGLETON (intentional for now)

@@ -16,3 +16,7 @@ Crew officer:
 - report_stabilization_to_earth: earth.pressure -= 0.02
 
 All variables are clamped to [0.0, 1.0] after application.
+
+Adding new agents
+- Register the agent in agents/catalog.py with default config, allowed goals,
+  and act/observe bindings.

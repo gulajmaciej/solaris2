@@ -8,6 +8,8 @@ One player decision per agent per turn. Agents plan actions, the world updates
 deterministically, and LLM observers generate reports.
 Agents also have deterministic MCP tools that can alter existing world variables
 in the same turn before planning.
+Add new agents by registering them in `agents/catalog.py` with default config,
+allowed goals, and act/observe bindings.
 
 ## Run
 1. Install requirements

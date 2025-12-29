@@ -7,6 +7,7 @@ from api.schemas import (
 )
 
 from api.state import SESSION
+from agents.catalog import get_agent_spec
 from api.mcp import router as mcp_router
 
 from game.turn import run_turn
@@ -33,13 +34,11 @@ def run_turn_endpoint(payload: TurnRequest):
         for d in payload.decisions
     ]
 
-    SESSION.instrument_agent.act(
-        thread_id=f"{SESSION.thread_id}:instrument_specialist",
-    )
-    SESSION.crew_agent.act(
-        drift=SESSION.registry.get_runtime("crew_officer").drift,
-        thread_id=f"{SESSION.thread_id}:crew_officer",
-    )
+    for agent_id in SESSION.registry.configs:
+        spec = get_agent_spec(agent_id)
+        agent = SESSION.agents[agent_id]
+        drift = SESSION.registry.get_runtime(agent_id).drift
+        spec.act(agent, drift, f"{SESSION.thread_id}:{agent_id}")
 
     SESSION.tension = run_turn(
         state=SESSION.state,
@@ -57,26 +56,23 @@ def run_turn_endpoint(payload: TurnRequest):
     )
     set_session(SESSION)
 
-    reports = [
-        AgentReport(
-            agent_id="instrument_specialist",
-            text=SESSION.instrument_agent.observe(
-                SESSION.state,
-                SESSION.registry.get_runtime("instrument_specialist").drift,
-                SESSION.solaris,
-                thread_id=f"{SESSION.thread_id}:instrument_specialist",
-            ),
-        ),
-        AgentReport(
-            agent_id="crew_officer",
-            text=SESSION.crew_agent.observe(
-                SESSION.state,
-                SESSION.registry.get_runtime("crew_officer").drift,
-                SESSION.solaris,
-                thread_id=f"{SESSION.thread_id}:crew_officer",
-            ),
-        ),
-    ]
+    reports = []
+    for agent_id in SESSION.registry.configs:
+        spec = get_agent_spec(agent_id)
+        agent = SESSION.agents[agent_id]
+        drift = SESSION.registry.get_runtime(agent_id).drift
+        reports.append(
+            AgentReport(
+                agent_id=agent_id,
+                text=spec.observe(
+                    agent,
+                    SESSION.state,
+                    drift,
+                    SESSION.solaris,
+                    f"{SESSION.thread_id}:{agent_id}",
+                ),
+            )
+        )
 
     return TurnResponse(
         turn=SESSION.state.turn,

@@ -5,10 +5,10 @@ from pathlib import Path
 
 from agents.config import (
     AgentRegistry,
-    AgentConfig,
     AgentGoal,
     PriorityLevel,
 )
+from agents.catalog import list_agent_specs, get_agent_spec
 from agents.planner import AgentPlan, PlannedAction
 from core.state import GameState
 from core.engine import GameEngine
@@ -54,36 +54,20 @@ def choose_decisions(
     decisions: list[PlayerDecision] = []
 
     if randomSelection:
-        instrument_goals = [
-            AgentGoal.MAXIMIZE_ANOMALY_DETECTION,
-            AgentGoal.STABILIZE_MEASUREMENT_BASELINES,
-            AgentGoal.REDUCE_DATA_UNCERTAINTY,
-        ]
-        crew_goals = [
-            AgentGoal.MINIMIZE_CREW_STRESS,
-            AgentGoal.MAINTAIN_OPERATIONAL_EFFICIENCY,
-            AgentGoal.PRESERVE_CREW_COHESION,
-        ]
         priorities = [
             PriorityLevel.LOW,
             PriorityLevel.MEDIUM,
             PriorityLevel.HIGH,
         ]
 
-        decisions.append(
-            PlayerDecision(
-                agent_id="instrument_specialist",
-                goal=random.choice(instrument_goals),
-                priority=random.choice(priorities),
+        for spec in list_agent_specs():
+            decisions.append(
+                PlayerDecision(
+                    agent_id=spec.agent_id,
+                    goal=random.choice(list(spec.allowed_goals)),
+                    priority=random.choice(priorities),
+                )
             )
-        )
-        decisions.append(
-            PlayerDecision(
-                agent_id="crew_officer",
-                goal=random.choice(crew_goals),
-                priority=random.choice(priorities),
-            )
-        )
 
         return decisions
 
@@ -124,6 +108,18 @@ def choose_decisions(
             priority=crew_priority,
         )
     )
+
+    for spec in list_agent_specs():
+        if spec.agent_id in {"instrument_specialist", "crew_officer"}:
+            continue
+        cfg = spec.default_config
+        decisions.append(
+            PlayerDecision(
+                agent_id=spec.agent_id,
+                goal=cfg.goal,
+                priority=cfg.priority,
+            )
+        )
 
     return decisions
 
@@ -296,20 +292,8 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
     tension = 0.0
 
     registry = AgentRegistry()
-    registry.register_agent(
-        "instrument_specialist",
-        AgentConfig(
-            goal=AgentGoal.MAXIMIZE_ANOMALY_DETECTION,
-            priority=PriorityLevel.HIGH,
-        ),
-    )
-    registry.register_agent(
-        "crew_officer",
-        AgentConfig(
-            goal=AgentGoal.MINIMIZE_CREW_STRESS,
-            priority=PriorityLevel.MEDIUM,
-        ),
-    )
+    for spec in list_agent_specs():
+        registry.register_agent(spec.agent_id, spec.default_config)
 
     root = Path(__file__).resolve().parents[1]
     out_dir = root / "notes" / "tests"
@@ -320,16 +304,6 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
 
     columns = [
         "turn",
-        "instrument_goal_chosen",
-        "instrument_priority_chosen",
-        "crew_goal_chosen",
-        "crew_priority_chosen",
-        "instrument_goal_effective",
-        "instrument_priority_effective",
-        "crew_goal_effective",
-        "crew_priority_effective",
-        "instrument_actions",
-        "crew_actions",
         "ocean_activity",
         "ocean_instability",
         "crew_stress",
@@ -342,10 +316,20 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
         "ocean_feedback_delta",
         "earth_pressure",
         "solaris_intensity",
-        "instrument_drift",
-        "crew_drift",
         "ending_type",
     ]
+
+    for spec in list_agent_specs():
+        columns.extend(
+            [
+                f"{spec.agent_id}_goal_chosen",
+                f"{spec.agent_id}_priority_chosen",
+                f"{spec.agent_id}_goal_effective",
+                f"{spec.agent_id}_priority_effective",
+                f"{spec.agent_id}_actions",
+                f"{spec.agent_id}_drift",
+            ]
+        )
 
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=columns)
@@ -386,23 +370,16 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
                 tension=tension,
             )
 
-            avg_drift = (
-                registry.runtime["instrument_specialist"].drift
-                + registry.runtime["crew_officer"].drift
-            ) / 2.0
+            if registry.runtime:
+                avg_drift = (
+                    sum(rt.drift for rt in registry.runtime.values())
+                    / len(registry.runtime)
+                )
+            else:
+                avg_drift = 0.0
 
             row = {
                 "turn": state.turn,
-                "instrument_goal_chosen": decisions_by_id["instrument_specialist"].goal.name,
-                "instrument_priority_chosen": decisions_by_id["instrument_specialist"].priority.name,
-                "crew_goal_chosen": decisions_by_id["crew_officer"].goal.name,
-                "crew_priority_chosen": decisions_by_id["crew_officer"].priority.name,
-                "instrument_goal_effective": constrained_by_id["instrument_specialist"].goal.name,
-                "instrument_priority_effective": constrained_by_id["instrument_specialist"].priority.name,
-                "crew_goal_effective": constrained_by_id["crew_officer"].goal.name,
-                "crew_priority_effective": constrained_by_id["crew_officer"].priority.name,
-                "instrument_actions": _actions_str(plans_by_id["instrument_specialist"]),
-                "crew_actions": _actions_str(plans_by_id["crew_officer"]),
                 "ocean_activity": round(state.ocean.activity, 4),
                 "ocean_instability": round(state.ocean.instability, 4),
                 "crew_stress": round(state.crew.stress, 4),
@@ -415,16 +392,36 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
                 "ocean_feedback_delta": round(ocean_feedback_delta, 4),
                 "earth_pressure": round(earth.pressure, 4),
                 "solaris_intensity": round(solaris.intensity, 4),
-                "instrument_drift": round(
-                    registry.runtime["instrument_specialist"].drift,
-                    4,
-                ),
-                "crew_drift": round(
-                    registry.runtime["crew_officer"].drift,
-                    4,
-                ),
                 "ending_type": ending.type.value if ending else "",
             }
+
+            for spec in list_agent_specs():
+                runtime = registry.runtime.get(spec.agent_id)
+                plan = plans_by_id.get(spec.agent_id)
+                decision = decisions_by_id.get(spec.agent_id)
+                constrained_decision = constrained_by_id.get(spec.agent_id)
+                row.update(
+                    {
+                        f"{spec.agent_id}_goal_chosen": decision.goal.name
+                        if decision
+                        else "",
+                        f"{spec.agent_id}_priority_chosen": decision.priority.name
+                        if decision
+                        else "",
+                        f"{spec.agent_id}_goal_effective": constrained_decision.goal.name
+                        if constrained_decision
+                        else "",
+                        f"{spec.agent_id}_priority_effective": constrained_decision.priority.name
+                        if constrained_decision
+                        else "",
+                        f"{spec.agent_id}_actions": _actions_str(plan)
+                        if plan
+                        else "",
+                        f"{spec.agent_id}_drift": round(runtime.drift, 4)
+                        if runtime
+                        else "",
+                    }
+                )
 
             writer.writerow(row)
 

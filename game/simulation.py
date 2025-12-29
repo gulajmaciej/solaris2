@@ -7,14 +7,8 @@ from core.engine import GameEngine
 from core.earth import EarthState
 from core.solaris import SolarisState, update_solaris_intensity
 
-from agents.config import (
-    AgentRegistry,
-    AgentConfig,
-    AgentGoal,
-    PriorityLevel,
-)
-from agents.instrument_specialist import InstrumentSpecialistAgent
-from agents.crew_officer import CrewOfficerAgent
+from agents.config import AgentRegistry
+from agents.catalog import list_agent_specs, get_agent_spec
 
 from game.turn import run_turn
 from game.endings import Ending, check_end_conditions
@@ -22,7 +16,7 @@ from game.decision import PlayerDecision
 from mcp.context import set_session
 
 
-Observer = Callable[[GameState, float, SolarisState], str]
+Observer = Callable[..., str]
 
 
 DEFAULT_OBSERVERS: Dict[str, Observer] = {}
@@ -50,8 +44,7 @@ class SimulationRunner:
         registry: AgentRegistry | None = None,
         tension: float = 0.0,
         observers: Dict[str, Observer] | None = None,
-        instrument_agent: InstrumentSpecialistAgent | None = None,
-        crew_agent: CrewOfficerAgent | None = None,
+        agents: Dict[str, object] | None = None,
         thread_id: str = "default",
         log_sink=None,
     ) -> None:
@@ -62,61 +55,40 @@ class SimulationRunner:
         self.registry = registry or self._default_registry()
         self.tension = tension
         self.thread_id = thread_id
-        self.instrument_agent = instrument_agent or InstrumentSpecialistAgent(
-            thread_id=f"{self.thread_id}:instrument_specialist",
-            log_sink=log_sink,
-        )
-        self.crew_agent = crew_agent or CrewOfficerAgent(
-            thread_id=f"{self.thread_id}:crew_officer",
-            log_sink=log_sink,
-        )
+        self.agents = agents or {
+            spec.agent_id: spec.agent_cls(
+                thread_id=f"{self.thread_id}:{spec.agent_id}",
+                log_sink=log_sink,
+            )
+            for spec in list_agent_specs()
+        }
         base_observers = DEFAULT_OBSERVERS.copy()
-        base_observers["instrument_specialist"] = self._observe_instrument
-        base_observers["crew_officer"] = self._observe_crew
+        for spec in list_agent_specs():
+            base_observers[spec.agent_id] = self._observe_agent
         self.observers = observers or base_observers
 
-    def _observe_instrument(
+    def _observe_agent(
         self,
         state: GameState,
         drift: float,
         solaris: SolarisState,
+        *,
+        agent_id: str,
     ) -> str:
-        return self.instrument_agent.observe(
+        spec = get_agent_spec(agent_id)
+        agent = self.agents[agent_id]
+        return spec.observe(
+            agent,
             state,
             drift,
             solaris,
-            thread_id=f"{self.thread_id}:instrument_specialist",
-        )
-
-    def _observe_crew(
-        self,
-        state: GameState,
-        drift: float,
-        solaris: SolarisState,
-    ) -> str:
-        return self.crew_agent.observe(
-            state,
-            drift,
-            solaris,
-            thread_id=f"{self.thread_id}:crew_officer",
+            f"{self.thread_id}:{agent_id}",
         )
 
     def _default_registry(self) -> AgentRegistry:
         registry = AgentRegistry()
-        registry.register_agent(
-            "instrument_specialist",
-            AgentConfig(
-                goal=AgentGoal.MAXIMIZE_ANOMALY_DETECTION,
-                priority=PriorityLevel.HIGH,
-            ),
-        )
-        registry.register_agent(
-            "crew_officer",
-            AgentConfig(
-                goal=AgentGoal.MINIMIZE_CREW_STRESS,
-                priority=PriorityLevel.MEDIUM,
-            ),
-        )
+        for spec in list_agent_specs():
+            registry.register_agent(spec.agent_id, spec.default_config)
         return registry
 
     def step(self, decisions: list[PlayerDecision]) -> TurnResult:
@@ -135,15 +107,9 @@ class SimulationRunner:
 
         for agent_id in self.registry.configs:
             drift = self.registry.get_runtime(agent_id).drift
-            if agent_id == "instrument_specialist":
-                self.instrument_agent.act(
-                    thread_id=f"{self.thread_id}:instrument_specialist",
-                )
-            elif agent_id == "crew_officer":
-                self.crew_agent.act(
-                    drift=drift,
-                    thread_id=f"{self.thread_id}:crew_officer",
-                )
+            spec = get_agent_spec(agent_id)
+            agent = self.agents[agent_id]
+            spec.act(agent, drift, f"{self.thread_id}:{agent_id}")
 
         self.tension = run_turn(
             state=self.state,
@@ -167,7 +133,12 @@ class SimulationRunner:
             if not observer:
                 continue
             drift = self.registry.get_runtime(agent_id).drift
-            reports[agent_id] = observer(self.state, drift, self.solaris)
+            reports[agent_id] = observer(
+                self.state,
+                drift,
+                self.solaris,
+                agent_id=agent_id,
+            )
 
         drift_levels = {
             agent_id: runtime.drift

@@ -41,14 +41,11 @@ def main():
             print(report)
 
         # --- DEBUG VIEW (LANGGRAPH) ---
-        if "instrument_specialist" in runner.registry.configs:
-            runner.instrument_agent.debug_render(
-                thread_id=f"{runner.thread_id}:instrument_specialist"
-            )
-        if "crew_officer" in runner.registry.configs:
-            runner.crew_agent.debug_render(
-                thread_id=f"{runner.thread_id}:crew_officer"
-            )
+        for agent_id, agent in runner.agents.items():
+            if hasattr(agent, "debug_render"):
+                agent.debug_render(
+                    thread_id=f"{runner.thread_id}:{agent_id}"
+                )
 
         # --- SYSTEM FEEDBACK ---
         print("\n--- SYSTEM FEEDBACK ---")

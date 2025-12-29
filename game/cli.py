@@ -1,23 +1,10 @@
 from typing import Type, TypeVar
 
+from agents.catalog import get_agent_spec
 from agents.config import AgentGoal, PriorityLevel, AgentRegistry
 from game.decision import PlayerDecision
 
 T = TypeVar("T")
-
-ALLOWED_GOALS = {
-    "instrument_specialist": {
-        AgentGoal.MAXIMIZE_ANOMALY_DETECTION,
-        AgentGoal.STABILIZE_MEASUREMENT_BASELINES,
-        AgentGoal.REDUCE_DATA_UNCERTAINTY,
-    },
-    "crew_officer": {
-        AgentGoal.MINIMIZE_CREW_STRESS,
-        AgentGoal.MAINTAIN_OPERATIONAL_EFFICIENCY,
-        AgentGoal.PRESERVE_CREW_COHESION,
-    },
-}
-
 
 def _choose_enum(
     enum_cls: Type[T],
@@ -53,7 +40,7 @@ def _choose_enum(
 
 def prompt_decision(agent_id: str, registry: AgentRegistry) -> PlayerDecision:
     cfg = registry.get_config(agent_id)
-    allowed_goals = ALLOWED_GOALS.get(agent_id)
+    allowed_goals = get_agent_spec(agent_id).allowed_goals
 
     print(f"\n--- Decision for agent: {agent_id} ---")
 
