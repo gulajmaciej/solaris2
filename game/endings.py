@@ -30,23 +30,24 @@ def check_end_conditions(
         sum(rt.drift for rt in registry.runtime.values())
         / len(registry.runtime)
     )
+    max_drift = max(rt.drift for rt in registry.runtime.values())
 
     # --- Institutional Lock-In ---
-    if tension < 0.1 and state.turn >= 6:
+    if tension <= 0.3 and state.turn >= 6:
         return Ending(
             EndingType.INSTITUTIONAL_LOCK_IN,
             "The system has become stable and predictable, but no longer produces new understanding.",
         )
 
     # --- Cognitive Collapse ---
-    if tension > 0.95 and avg_drift > 0.8:
+    if tension > 0.95 and (avg_drift > 0.18 or max_drift > 0.28):
         return Ending(
             EndingType.COGNITIVE_COLLAPSE,
             "Conflicting optimizations have destroyed the system's ability to reason coherently.",
         )
 
     # --- Institutional Termination ---
-    if tension > 0.75 and state.turn >= 50:
+    if tension > 0.75 and state.turn >= 35:
         return Ending(
             EndingType.INSTITUTIONAL_TERMINATION,
             "External oversight determines the system is no longer controllable.",

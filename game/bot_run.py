@@ -1,7 +1,9 @@
+import argparse
 import csv
 import random
 from datetime import datetime, UTC
 from pathlib import Path
+from types import SimpleNamespace
 
 from agents.config import (
     AgentRegistry,
@@ -18,6 +20,7 @@ from core.tension import update_tension_and_drift, compute_delta_tension
 from game.decision import PlayerDecision
 from game.endings import check_end_conditions
 from game.governance import apply_earth_constraints
+from mcp.context import set_session
 
 # Import constants from turn logic to keep behavior aligned.
 from game.turn import (
@@ -284,22 +287,72 @@ def _actions_str(plan: AgentPlan) -> str:
     return ",".join(action.value for action in plan.actions)
 
 
-def main(max_turns: int = 500, *, randomSelection: bool = False):
+def _build_registry() -> AgentRegistry:
+    registry = AgentRegistry()
+    for spec in list_agent_specs():
+        registry.register_agent(spec.agent_id, spec.default_config)
+    return registry
+
+
+def _build_agents(*, run_id: str):
+    def _sink(_event: dict) -> None:
+        return
+
+    return {
+        spec.agent_id: spec.agent_cls(
+            thread_id=f"{run_id}:{spec.agent_id}",
+            log_sink=_sink,
+        )
+        for spec in list_agent_specs()
+    }
+
+
+def _run_tool_phase(
+    *,
+    state: GameState,
+    registry: AgentRegistry,
+    earth: EarthState,
+    solaris: SolarisState,
+    tension: float,
+    agents: dict,
+    run_id: str,
+) -> None:
+    set_session(
+        SimpleNamespace(
+            state=state,
+            tension=tension,
+            earth=earth,
+            solaris=solaris,
+            registry=registry,
+        )
+    )
+
+    for agent_id in registry.configs:
+        spec = get_agent_spec(agent_id)
+        agent = agents[agent_id]
+        drift = registry.get_runtime(agent_id).drift
+        spec.act(agent, drift, f"{run_id}:{agent_id}")
+
+
+def _write_bot_run(
+    *,
+    max_turns: int,
+    randomSelection: bool,
+    run_id: str,
+):
     state = GameState.initial()
     engine = GameEngine()
     earth = EarthState()
     solaris = SolarisState()
     tension = 0.0
 
-    registry = AgentRegistry()
-    for spec in list_agent_specs():
-        registry.register_agent(spec.agent_id, spec.default_config)
+    registry = _build_registry()
+    agents = _build_agents(run_id=run_id)
 
     root = Path(__file__).resolve().parents[1]
     out_dir = root / "notes" / "tests"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     out_path = out_dir / f"bot_run_{run_id}.csv"
 
     columns = [
@@ -336,8 +389,20 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
         writer.writeheader()
 
         for _ in range(max_turns):
+            _run_tool_phase(
+                state=state,
+                registry=registry,
+                earth=earth,
+                solaris=solaris,
+                tension=tension,
+                agents=agents,
+                run_id=run_id,
+            )
+
             decisions = choose_decisions(state, randomSelection=randomSelection)
             decisions_by_id = {d.agent_id: d for d in decisions}
+
+            turn_before = state.turn
 
             (
                 tension,
@@ -379,7 +444,7 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
                 avg_drift = 0.0
 
             row = {
-                "turn": state.turn,
+                "turn": turn_before,
                 "ocean_activity": round(state.ocean.activity, 4),
                 "ocean_instability": round(state.ocean.instability, 4),
                 "crew_stress": round(state.crew.stress, 4),
@@ -431,5 +496,191 @@ def main(max_turns: int = 500, *, randomSelection: bool = False):
     print(f"[BOT RUN] Saved: {out_path}")
 
 
+def _write_sweep(*, max_turns: int, run_id: str) -> None:
+    root = Path(__file__).resolve().parents[1]
+    out_dir = root / "notes" / "tests"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    out_path = out_dir / f"bot_run_sweep_{run_id}.csv"
+
+    instrument = get_agent_spec("instrument_specialist")
+    crew = get_agent_spec("crew_officer")
+
+    instrument_goals = sorted(instrument.allowed_goals, key=lambda g: g.name)
+    crew_goals = sorted(crew.allowed_goals, key=lambda g: g.name)
+    priorities = list(PriorityLevel)
+
+    columns = [
+        "instrument_goal",
+        "instrument_priority",
+        "crew_goal",
+        "crew_priority",
+        "ending_type",
+        "ending_turn",
+        "avg_tension",
+        "max_tension",
+        "avg_drift",
+        "max_drift",
+    ]
+
+    with out_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=columns)
+        writer.writeheader()
+
+        for inst_goal in instrument_goals:
+            for inst_priority in priorities:
+                for crew_goal in crew_goals:
+                    for crew_priority in priorities:
+                        state = GameState.initial()
+                        engine = GameEngine()
+                        earth = EarthState()
+                        solaris = SolarisState()
+                        tension = 0.0
+
+                        registry = _build_registry()
+                        agents = _build_agents(run_id=run_id)
+
+                        total_tension = 0.0
+                        max_tension = 0.0
+                        ending = None
+                        turns_run = 0
+
+                        for _ in range(max_turns):
+                            _run_tool_phase(
+                                state=state,
+                                registry=registry,
+                                earth=earth,
+                                solaris=solaris,
+                                tension=tension,
+                                agents=agents,
+                                run_id=run_id,
+                            )
+
+                            decisions = [
+                                PlayerDecision(
+                                    agent_id="instrument_specialist",
+                                    goal=inst_goal,
+                                    priority=inst_priority,
+                                ),
+                                PlayerDecision(
+                                    agent_id="crew_officer",
+                                    goal=crew_goal,
+                                    priority=crew_priority,
+                                ),
+                            ]
+                            for spec in list_agent_specs():
+                                if spec.agent_id in {
+                                    "instrument_specialist",
+                                    "crew_officer",
+                                }:
+                                    continue
+                                cfg = spec.default_config
+                                decisions.append(
+                                    PlayerDecision(
+                                        agent_id=spec.agent_id,
+                                        goal=cfg.goal,
+                                        priority=cfg.priority,
+                                    )
+                                )
+
+                            tension, _, _, _, _, _ = run_bot_turn(
+                                state=state,
+                                registry=registry,
+                                decisions=decisions,
+                                engine=engine,
+                                current_tension=tension,
+                                earth=earth,
+                            )
+
+                            update_solaris_intensity(
+                                solaris=solaris,
+                                tension=tension,
+                                earth_pressure=earth.pressure,
+                            )
+
+                            total_tension += tension
+                            max_tension = max(max_tension, tension)
+                            turns_run += 1
+
+                            ending = check_end_conditions(
+                                state=state,
+                                registry=registry,
+                                tension=tension,
+                            )
+                            if ending:
+                                break
+
+                        if registry.runtime:
+                            avg_drift = (
+                                sum(rt.drift for rt in registry.runtime.values())
+                                / len(registry.runtime)
+                            )
+                            max_drift = max(
+                                rt.drift for rt in registry.runtime.values()
+                            )
+                        else:
+                            avg_drift = 0.0
+                            max_drift = 0.0
+
+                        row = {
+                            "instrument_goal": inst_goal.name,
+                            "instrument_priority": inst_priority.name,
+                            "crew_goal": crew_goal.name,
+                            "crew_priority": crew_priority.name,
+                            "ending_type": ending.type.value if ending else "",
+                            "ending_turn": state.turn,
+                            "avg_tension": round(
+                                total_tension / turns_run, 4
+                            )
+                            if turns_run
+                            else 0.0,
+                            "max_tension": round(max_tension, 4),
+                            "avg_drift": round(avg_drift, 4),
+                            "max_drift": round(max_drift, 4),
+                        }
+                        writer.writerow(row)
+
+    print(f"[BOT RUN] Saved: {out_path}")
+
+
+def main(
+    max_turns: int = 500,
+    *,
+    randomSelection: bool = False,
+    sweep: bool = False,
+):
+    run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    if sweep:
+        _write_sweep(max_turns=max_turns, run_id=run_id)
+        return
+    _write_bot_run(
+        max_turns=max_turns,
+        randomSelection=randomSelection,
+        run_id=run_id,
+    )
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run deterministic bot sims.")
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=500,
+        help="Maximum number of turns to simulate.",
+    )
+    parser.add_argument(
+        "--random",
+        action="store_true",
+        help="Use random decisions per agent.",
+    )
+    parser.add_argument(
+        "--sweep",
+        action="store_true",
+        help="Run a sweep over instrument/crew goal+priority combinations.",
+    )
+    args = parser.parse_args()
+    main(
+        max_turns=args.max_turns,
+        randomSelection=args.random,
+        sweep=args.sweep,
+    )

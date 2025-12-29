@@ -11,8 +11,8 @@ def priority_factor(p_a: int, p_b: int) -> float:
     if p_a == p_b:
         return 1.0
     if abs(p_a - p_b) == 1:
-        return 1.1
-    return 1.2
+        return 1.05
+    return 1.1
 
 
 def compute_delta_tension(registry: AgentRegistry) -> float:

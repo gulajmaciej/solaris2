@@ -200,10 +200,11 @@ COGNITIVE CONTEXT:
 - Your personal cognitive drift: {state['drift']:.2f}
 - Solaris distortion field intensity: {state['solaris_intensity']:.2f}
 
-RULES:
-- Do NOT invent new crew members.
-- Do NOT describe physical hallucinations directly.
-- Let Solaris subtly influence emotional interpretation.
+    RULES:
+    - Do NOT invent new crew members.
+    - Do NOT describe physical hallucinations directly.
+    - Let Solaris subtly influence emotional interpretation.
+    - Limit output to 2-3 short sentences.
 
 Describe the crew condition.
 """
@@ -212,6 +213,10 @@ Describe the crew condition.
 
     if response.startswith("```"):
         response = response.replace("```", "").strip()
+
+    sentences = [s.strip() for s in response.replace("\n", " ").split(".") if s.strip()]
+    if len(sentences) > 3:
+        response = ". ".join(sentences[:3]).rstrip(".") + "."
 
     state["last_observation"] = response
     _emit_event(

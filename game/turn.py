@@ -20,14 +20,14 @@ ACTIVITY_COEFF = 0.02
 
 # --- tension reduction constants ---
 TENSION_RELIEF_AMOUNT = 0.05
-MIN_TENSION = 0.15
+MIN_TENSION = 0.3
 
 # --- fatigue/stress coupling ---
 FATIGUE_STRESS_COEFF = 0.02
 
 # --- stress/ocean feedback into tension ---
-STRESS_TENSION_COEFF = 0.02
-OCEAN_TENSION_COEFF = 0.05
+STRESS_TENSION_COEFF = 0.017
+OCEAN_TENSION_COEFF = 0.045
 
 # --- stress influence on drift ---
 STRESS_DRIFT_COEFF = 0.01

@@ -5,7 +5,7 @@ from agents.config import AgentGoal
 # Conflict scale:
 # 0 = none, 1 = soft, 2 = structural, 3 = critical
 
-CONFLICT_SCALE = 0.6
+CONFLICT_SCALE = 0.5
 
 CONFLICT_MATRIX: Dict[Tuple[AgentGoal, AgentGoal], int] = {
     # Instrument Specialist vs Crew Officer
