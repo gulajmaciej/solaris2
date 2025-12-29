@@ -9,7 +9,7 @@ Inputs
 - CSV report from game/bot_run.py (turn-level metrics and per-agent columns).
 - Current tuning constants in core/actions.py, game/turn.py, core/tension.py,
   core/earth.py, and tool deltas in mcp/tools.py.
-- World rules summary in docs/helps/cheatsheet.csv and docs/helps/turn_pipeline.md.
+- World rules summary in docs/helps/solaris_parameters.csv and docs/helps/turn_pipeline.md.
 
 Workflow
 1) Load the CSV and compute basic summaries:
@@ -60,4 +60,3 @@ Suggested outputs (template)
 - Change: file/constant -> old -> new
 - Rationale: ...
 - Expected effect: ...
-

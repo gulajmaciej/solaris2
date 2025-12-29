@@ -31,5 +31,6 @@ Notes:
 - Observational LLM nodes only interpret; tools act in a separate phase.
 - Tool effects are applied before planning, in the same turn.
 - Tool list and deltas: docs/helps/agent_tools.md.
+- Parameter definitions: docs/helps/solaris_parameters.csv.
 - Governance feeds back into the next turn by constraining decisions.
 - Ocean state feeds back into tension (ocean feedback).

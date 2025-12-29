@@ -18,7 +18,7 @@ allowed goals, and act/observe bindings.
 python game/loop.py
 
 ## Docs
-- `docs/helps/cheatsheet.csv` - variables, update rules, and impacts
+- `docs/helps/solaris_parameters.csv` - core parameters with definitions and dependencies
 - `docs/helps/agent_tools.md` - MCP agent tools and deltas
 - `docs/helps/report_analysis_roadmap.md` - roadmap for tuning based on bot_run reports
 - `docs/helps/system_map.md` - feedback loop overview

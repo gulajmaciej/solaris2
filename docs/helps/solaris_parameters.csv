@@ -1,0 +1,15 @@
+parameter,definition,depends_on,update_summary,impact_on_gameplay,notes
+turn,Turn counter for narrative pacing.,none,Incremented by 1 each turn.,Marks time progression; gates some endings.,game/turn.py
+ocean.activity,"How active the ocean appears in measurements.",agent actions; agent tools; tension thresholds,Adjusted by actions/tools; rises when tension exceeds activity threshold.,Feeds tension and shapes instrument observations.,core/actions.py; game/turn.py
+ocean.instability,"How unstable or noisy the ocean patterns are.",agent actions; agent tools; tension thresholds,Adjusted by actions/tools; rises when tension exceeds instability threshold.,Feeds tension and affects measurement quality.,core/actions.py; game/turn.py
+crew.stress,"Crew psychological stress level.",agent actions; agent tools,Adjusted by actions/tools; increased by fatigue each turn.,Increases tension and drift; colors crew reports.,core/actions.py; game/turn.py
+crew.fatigue,"Crew exhaustion level.",agent actions; agent tools,Adjusted by actions/tools; feeds stress each turn.,Indirectly raises tension and drift.,core/actions.py; game/turn.py
+station.power_level,"Available station power.",agent actions; agent tools,Adjusted by actions/tools.,Constrains crew/instrument choices; narrative resource pressure.,core/actions.py
+tension,System-wide conflict and instability score.,goal conflicts; drift; feedback,Computed from conflict matrix and drift; then adjusted by stress/ocean feedback.,Drives ocean escalation and endings; affects Solaris intensity.,core/tension.py; game/turn.py
+drift,Agent deviation from intended goals.,tension; stress feedback,Increases with tension each turn and with crew stress.,Amplifies conflict impact; raises Earth pressure.,core/tension.py; game/turn.py
+earth.pressure,Institutional oversight pressure.,tension; avg drift; agent tools,Updated with hysteresis; increased by drift; tools can nudge it.,Constrains decisions and raises Solaris intensity.,core/earth.py; mcp/tools.py
+solaris.intensity,"Distortion field influencing perception.",tension; earth.pressure,Weighted blend of tension and Earth pressure.,Affects observation tone; no direct mechanics.,core/solaris.py
+governance.constraints,"Rule changes imposed by Earth.",earth.pressure,Applies limits to goals/priorities before planning.,Can force stabilization and lower priorities.,game/governance.py
+conflict_strength,Pairwise friction between agent goals.,agent goals,Lookup in conflict matrix and scaled.,Core input to tension growth.,core/conflicts.py
+priority_factor,Multiplier from priority mismatch.,agent priorities,1.0/1.05/1.1 depending on gap.,Scales conflict impact in tension.,core/tension.py
+autonomy,Slack from combined drift.,agent drift,1.0 + average drift of the pair.,Scales conflict impact in tension.,core/tension.py
