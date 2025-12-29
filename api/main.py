@@ -14,6 +14,7 @@ from game.decision import PlayerDecision
 from game.endings import check_end_conditions
 
 from core.solaris import update_solaris_intensity
+from mcp.context import set_session
 
 
 app = FastAPI(title="Solaris Simulation API")
@@ -22,6 +23,7 @@ app.include_router(mcp_router)
 
 @app.post("/turn", response_model=TurnResponse)
 def run_turn_endpoint(payload: TurnRequest):
+    set_session(SESSION)
     decisions = [
         PlayerDecision(
             agent_id=d.agent_id,
@@ -30,6 +32,14 @@ def run_turn_endpoint(payload: TurnRequest):
         )
         for d in payload.decisions
     ]
+
+    SESSION.instrument_agent.act(
+        thread_id=f"{SESSION.thread_id}:instrument_specialist",
+    )
+    SESSION.crew_agent.act(
+        drift=SESSION.registry.get_runtime("crew_officer").drift,
+        thread_id=f"{SESSION.thread_id}:crew_officer",
+    )
 
     SESSION.tension = run_turn(
         state=SESSION.state,
@@ -45,6 +55,7 @@ def run_turn_endpoint(payload: TurnRequest):
         tension=SESSION.tension,
         earth_pressure=SESSION.earth.pressure,
     )
+    set_session(SESSION)
 
     reports = [
         AgentReport(

@@ -1,13 +1,16 @@
 from datetime import datetime, UTC
 
-from game.cli import prompt_decision
+from game.cli import prompt_decision, render_agent_event
 from game.simulation import SimulationRunner
 
 
 def main():
     thread_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     print(f"\n[SESSION] thread_id: {thread_id}")
-    runner = SimulationRunner(thread_id=thread_id)
+    runner = SimulationRunner(
+        thread_id=thread_id,
+        log_sink=render_agent_event,
+    )
 
     # --- MAIN LOOP ---
     while True:

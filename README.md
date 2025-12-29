@@ -6,6 +6,8 @@ and evolving world state.
 
 One player decision per agent per turn. Agents plan actions, the world updates
 deterministically, and LLM observers generate reports.
+Agents also have deterministic MCP tools that can alter existing world variables
+in the same turn before planning.
 
 ## Run
 1. Install requirements
@@ -15,6 +17,7 @@ python game/loop.py
 
 ## Docs
 - `docs/helps/cheatsheet.csv` - variables, update rules, and impacts
+- `docs/helps/agent_tools.md` - MCP agent tools and deltas
 - `docs/helps/system_map.md` - feedback loop overview
 - `docs/helps/turn_pipeline.md` - turn order of operations
 

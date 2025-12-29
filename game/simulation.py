@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Dict, Optional, Callable
 
 from core.state import GameState
@@ -18,6 +19,7 @@ from agents.crew_officer import CrewOfficerAgent
 from game.turn import run_turn
 from game.endings import Ending, check_end_conditions
 from game.decision import PlayerDecision
+from mcp.context import set_session
 
 
 Observer = Callable[[GameState, float, SolarisState], str]
@@ -51,6 +53,7 @@ class SimulationRunner:
         instrument_agent: InstrumentSpecialistAgent | None = None,
         crew_agent: CrewOfficerAgent | None = None,
         thread_id: str = "default",
+        log_sink=None,
     ) -> None:
         self.state = state or GameState.initial()
         self.engine = engine or GameEngine()
@@ -60,10 +63,12 @@ class SimulationRunner:
         self.tension = tension
         self.thread_id = thread_id
         self.instrument_agent = instrument_agent or InstrumentSpecialistAgent(
-            thread_id=f"{self.thread_id}:instrument_specialist"
+            thread_id=f"{self.thread_id}:instrument_specialist",
+            log_sink=log_sink,
         )
         self.crew_agent = crew_agent or CrewOfficerAgent(
-            thread_id=f"{self.thread_id}:crew_officer"
+            thread_id=f"{self.thread_id}:crew_officer",
+            log_sink=log_sink,
         )
         base_observers = DEFAULT_OBSERVERS.copy()
         base_observers["instrument_specialist"] = self._observe_instrument
@@ -115,6 +120,31 @@ class SimulationRunner:
         return registry
 
     def step(self, decisions: list[PlayerDecision]) -> TurnResult:
+        def _set_mcp_context() -> None:
+            set_session(
+                SimpleNamespace(
+                    state=self.state,
+                    tension=self.tension,
+                    earth=self.earth,
+                    solaris=self.solaris,
+                    registry=self.registry,
+                )
+            )
+
+        _set_mcp_context()
+
+        for agent_id in self.registry.configs:
+            drift = self.registry.get_runtime(agent_id).drift
+            if agent_id == "instrument_specialist":
+                self.instrument_agent.act(
+                    thread_id=f"{self.thread_id}:instrument_specialist",
+                )
+            elif agent_id == "crew_officer":
+                self.crew_agent.act(
+                    drift=drift,
+                    thread_id=f"{self.thread_id}:crew_officer",
+                )
+
         self.tension = run_turn(
             state=self.state,
             registry=self.registry,
@@ -129,6 +159,7 @@ class SimulationRunner:
             tension=self.tension,
             earth_pressure=self.earth.pressure,
         )
+        _set_mcp_context()
 
         reports: Dict[str, str] = {}
         for agent_id in self.registry.configs:

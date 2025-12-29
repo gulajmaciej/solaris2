@@ -17,6 +17,15 @@ class InstrumentAgentState(TypedDict):
     crew_fatigue: float
     crew_confidence_delta: float
     crew_contradiction_delta: int
+    phase: str
+    tool_decision: str | None
+    tool_reason: str
+    tool_applied: bool
+    ocean_activity: float
+    ocean_instability: float
+    station_power_level: float
+    tension: float
+    solaris_intensity: float
 
 
 def default_instrument_state() -> InstrumentAgentState:
@@ -31,6 +40,15 @@ def default_instrument_state() -> InstrumentAgentState:
         "crew_fatigue": 0.0,
         "crew_confidence_delta": 0.0,
         "crew_contradiction_delta": 0,
+        "phase": "observe",
+        "tool_decision": None,
+        "tool_reason": "",
+        "tool_applied": False,
+        "ocean_activity": 0.0,
+        "ocean_instability": 0.0,
+        "station_power_level": 0.0,
+        "tension": 0.0,
+        "solaris_intensity": 0.0,
     }
 
 
@@ -44,6 +62,11 @@ class CrewOfficerState(TypedDict):
     solaris_intensity: float
     last_observation: str
     visited_nodes: List[str]
+    tension: float
+    phase: str
+    tool_decision: str | None
+    tool_reason: str
+    tool_applied: bool
 
 
 def default_crew_state() -> CrewOfficerState:
@@ -54,4 +77,9 @@ def default_crew_state() -> CrewOfficerState:
         "solaris_intensity": 0.0,
         "last_observation": "",
         "visited_nodes": [],
+        "tension": 0.0,
+        "phase": "observe",
+        "tool_decision": None,
+        "tool_reason": "",
+        "tool_applied": False,
     }

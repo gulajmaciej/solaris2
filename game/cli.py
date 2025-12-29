@@ -74,3 +74,39 @@ def prompt_decision(agent_id: str, registry: AgentRegistry) -> PlayerDecision:
         goal=new_goal,
         priority=new_priority,
     )
+
+
+def render_agent_event(event: dict) -> None:
+    agent = event.get("agent", "agent")
+    node = event.get("node", "node")
+    event_type = event.get("event", "event")
+    data = event.get("data") or {}
+
+    label = agent.replace("_", " ").upper()
+    color = {
+        "INSTRUMENT SPECIALIST": "\x1b[36m",
+        "CREW OFFICER": "\x1b[33m",
+    }.get(label, "\x1b[37m")
+    reset = "\x1b[0m"
+
+    if event_type == "decision":
+        tool = data.get("tool") or "none"
+        reason = data.get("reason") or "-"
+        print(f"{color}[{label}] decide_tool -> {tool} ({reason}){reset}")
+        return
+
+    if event_type == "tool_call":
+        tool = data.get("tool") or "unknown"
+        print(f"{color}[{label}] apply_tool -> {tool} ...{reset}")
+        return
+
+    if event_type == "tool_result":
+        tool = data.get("tool") or "unknown"
+        print(f"{color}[{label}] apply_tool -> {tool} OK{reset}")
+        return
+
+    if event_type == "node_end" and node == "observe":
+        observation = data.get("observation")
+        if observation:
+            print(f"{color}[{label}] observe -> {observation}{reset}")
+        return

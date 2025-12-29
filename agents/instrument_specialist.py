@@ -1,3 +1,6 @@
+import json
+from typing import Callable
+
 from langgraph.checkpoint.memory import InMemorySaver
 
 from agents.langgraph_state import (
@@ -13,12 +16,14 @@ class InstrumentSpecialistAgent:
         *,
         checkpointer=None,
         thread_id: str = "instrument_specialist",
+        log_sink: Callable[[dict], None] | None = None,
     ) -> None:
         self._checkpointer = checkpointer or InMemorySaver()
         self._graph = build_instrument_graph(
             checkpointer=self._checkpointer,
         )
         self._thread_id = thread_id
+        self._log_sink = log_sink
 
     def _config(self, *, thread_id: str | None = None) -> dict:
         return {"configurable": {"thread_id": thread_id or self._thread_id}}
@@ -32,12 +37,36 @@ class InstrumentSpecialistAgent:
             return snapshot.values
         return default_instrument_state()
 
-    def observe(self, state, drift, solaris, *, thread_id: str | None = None) -> str:
+    def _run_graph(
+        self,
+        *,
+        phase: str,
+        thread_id: str | None = None,
+    ) -> InstrumentAgentState:
         current = self._get_state(thread_id=thread_id)
-        result = self._graph.invoke(
+        current["phase"] = phase
+
+        last_values: InstrumentAgentState | None = None
+        for mode, chunk in self._graph.stream(
             current,
             config=self._config(thread_id=thread_id),
-        )
+            stream_mode=["custom", "values"],
+        ):
+            if mode == "custom":
+                if self._log_sink:
+                    self._log_sink(chunk)
+                else:
+                    print(json.dumps(chunk, ensure_ascii=True), flush=True)
+            elif mode == "values":
+                last_values = chunk
+
+        return last_values or current
+
+    def act(self, *, thread_id: str | None = None) -> None:
+        self._run_graph(phase="tool", thread_id=thread_id)
+
+    def observe(self, state, drift, solaris, *, thread_id: str | None = None) -> str:
+        result = self._run_graph(phase="observe", thread_id=thread_id)
         return result.get("last_observation", "")
 
     def debug_render(self, *, thread_id: str | None = None) -> None:
