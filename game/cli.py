@@ -1,3 +1,4 @@
+import re
 from typing import Type, TypeVar
 
 from agents.catalog import get_agent_spec
@@ -95,5 +96,13 @@ def render_agent_event(event: dict) -> None:
     if event_type == "node_end" and node == "observe":
         observation = data.get("observation")
         if observation:
-            print(f"{color}[{label}] observe -> {observation}{reset}")
+            def _fmt(match: re.Match) -> str:
+                try:
+                    value = float(match.group(0))
+                except ValueError:
+                    return match.group(0)
+                return f"{value:.4f}"
+
+            formatted = re.sub(r"\d+\.\d+", _fmt, observation)
+            print(f"{color}[{label}] observe -> {formatted}{reset}")
         return

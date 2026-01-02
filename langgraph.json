@@ -1,0 +1,7 @@
+{
+  "dependencies": ["./", "langchain", "langchain-community", "langchain-ollama", "langgraph"],
+  "graphs": {
+    "instrument_agent": "./agents/instrument_specialist/graph.py:build_instrument_graph",
+    "crew_agent": "./agents/crew_officer/graph.py:build_crew_graph"
+  }
+}
