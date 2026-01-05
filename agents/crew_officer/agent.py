@@ -86,8 +86,7 @@ class CrewOfficerAgent:
 
         print("\n--- CREW OFFICER (LangGraph DEBUG) ---")
         print("Visited nodes:")
-        print("  " + " Ź'Ć' ".join(state["visited_nodes"]))
-
+        print("  " + " -> ".join(state["visited_nodes"]))
         print("\nCrew snapshot:")
         print(f"  stress={state['crew_stress']:.2f}")
         print(f"  fatigue={state['crew_fatigue']:.2f}")

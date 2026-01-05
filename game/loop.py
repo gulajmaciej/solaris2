@@ -62,7 +62,7 @@ def main():
             print("\n--- TENSION DEBUG ---")
             for d in result.state.flags["tension_debug"]:
                 print(
-                    f"Tension {d['previous']} ƒÅ' {d['next']} "
+                    f"Tension {d['previous']} -> {d['next']} "
                     f"({d['delta']:+}) | reason: {d['reason']}"
                 )
 
@@ -70,7 +70,7 @@ def main():
             print("\n--- EARTH PRESSURE DEBUG ---")
             for d in result.state.flags["earth_debug"]:
                 print(
-                    f"Earth pressure {d['previous']} ƒÅ' {d['next']} "
+                    f"Earth pressure {d['previous']} -> {d['next']} "
                     f"({d['delta']:+}) | reason: {d['reason']} "
                     f"| tension={d['tension']}"
                 )

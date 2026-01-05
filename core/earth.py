@@ -56,7 +56,7 @@ def update_earth_pressure(
         high_streak = 0
 
     else:
-        # neutral zone → decay streaks slowly
+        # neutral zone -> decay streaks slowly
         high_streak = max(0, high_streak - STREAK_DECAY)
         low_streak = max(0, low_streak - STREAK_DECAY)
 

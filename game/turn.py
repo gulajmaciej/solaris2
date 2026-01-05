@@ -11,7 +11,7 @@ from game.decision import PlayerDecision
 from game.governance import apply_earth_constraints
 
 
-# --- tension → ocean coupling constants ---
+# --- tension -> ocean coupling constants ---
 TENSION_INSTABILITY_THRESHOLD = 0.3
 TENSION_ACTIVITY_THRESHOLD = 0.6
 

@@ -77,8 +77,7 @@ class InstrumentSpecialistAgent:
 
         print("\n--- INSTRUMENT AGENT (LangGraph DEBUG) ---")
         print("Visited nodes:")
-        print("  " + " Ź'Ć' ".join(state["visited_nodes"]))
-
+        print("  " + " -> ".join(state["visited_nodes"]))
         print("\nLast routing decision:")
         print(f"  {state['last_route']}")
 
