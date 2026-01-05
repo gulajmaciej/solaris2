@@ -10,7 +10,7 @@ from agents.crew_officer.nodes import (
 )
 
 
-def build_crew_graph(*, checkpointer=None):
+def build_crew_graph(config=None, *, checkpointer=None):
     graph = StateGraph(CrewOfficerState)
 
     graph.add_node("read_context", read_context)
@@ -46,4 +46,10 @@ def build_crew_graph(*, checkpointer=None):
 
     graph.add_edge("observe", END)
 
-    return graph.compile(checkpointer=checkpointer or InMemorySaver())
+    if checkpointer is None:
+        return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
+
+
+# Default export for langgraph.json
+crew_graph = build_crew_graph()

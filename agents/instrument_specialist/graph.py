@@ -14,7 +14,7 @@ from agents.instrument_specialist.nodes import (
 )
 
 
-def build_instrument_graph(*, checkpointer=None):
+def build_instrument_graph(config=None, *, checkpointer=None):
     graph = StateGraph(InstrumentAgentState)
 
     graph.add_node("read_context", read_context)
@@ -66,4 +66,10 @@ def build_instrument_graph(*, checkpointer=None):
 
     graph.add_edge("flag_event", END)
 
-    return graph.compile(checkpointer=checkpointer or InMemorySaver())
+    if checkpointer is None:
+        return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
+
+
+# Default export for langgraph.json
+instrument_graph = build_instrument_graph()

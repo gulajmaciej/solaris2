@@ -1,10 +1,10 @@
 # Agents Walkthrough (Instrument Specialist + Crew Officer)
 
-This document is a step‑by‑step guide to the agents in this repo. It explains the intent of each file and (almost) every line, focusing on architectural goals and how each node behaves.
+This document is a step-by-step guide to the agents in this repo. It explains the intent of each file and (almost) every line, focusing on architectural goals and how each node behaves.
 
 ---
 
-## High‑level architecture
+## High-level architecture
 The agents are LangGraph graphs with explicit state. Each agent has:
 - **state schema** (TypedDict)
 - **graph wiring** (nodes + edges + routing)
@@ -20,18 +20,18 @@ There is also shared scaffolding:
 
 ---
 
-## File‑by‑file walkthrough
+## File-by-file walkthrough
 
 ### `agents/config.py`
 Purpose: define agent goals, priority, and a thin registry to hold configs + runtime.
 
-- `AgentGoal` enum: hard‑coded policy goals for each agent type.
+- `AgentGoal` enum: hard-coded policy goals for each agent type.
 - `PriorityLevel` enum: symbolic importance (LOW/MEDIUM/HIGH).
-- `AgentConfig`: the “intent layer” (goal + priority), explicitly not world state.
-- `AgentRuntimeState`: runtime‑only metrics (currently `drift`).
-- `AgentRegistry`: central in‑memory registry:
-  - `configs` stores per‑agent `AgentConfig`.
-  - `runtime` stores per‑agent `AgentRuntimeState`.
+- `AgentConfig`: the "intent layer" (goal + priority), explicitly not world state.
+- `AgentRuntimeState`: runtime-only metrics (currently `drift`).
+- `AgentRegistry`: central in-memory registry:
+  - `configs` stores per-agent `AgentConfig`.
+  - `runtime` stores per-agent `AgentRuntimeState`.
   - `register_agent` seeds both maps.
   - `set_goal` / `set_priority` mutate config and guard against unknown agents.
   - `get_config` / `get_runtime` return the stored objects.
@@ -49,7 +49,7 @@ Purpose: declarative catalog of agent specs used by the simulation runner.
 - `_CATALOG`: the registry of agent definitions (IDs, default goals, allowed goals).
 - `get_agent_spec` / `list_agent_specs`: lookup API for the rest of the app.
 
-Architectural intent: centralize “what agents exist” and how they are called.
+Architectural intent: centralize "what agents exist" and how they are called.
 
 ---
 
@@ -64,7 +64,7 @@ Key groups:
 - **Tool state**: `tool_decision`, `tool_reason`, `tool_applied`.
 - **World snapshot**: `ocean_activity`, `ocean_instability`, `station_power_level`,
   `tension`, `solaris_intensity`, `crew_stress`, `crew_fatigue`.
-- **Crew‑coupling deltas**: `crew_confidence_delta`, `crew_contradiction_delta`.
+- **Crew-coupling deltas**: `crew_confidence_delta`, `crew_contradiction_delta`.
 
 `default_instrument_state()` supplies deterministic defaults for a new thread.
 
@@ -83,9 +83,9 @@ Architectural intent: typed, explicit state = predictable graph behavior and bet
 ---
 
 ### `agents/mcp_client.py`
-Purpose: legacy helper to build a LangChain‑style agent using MCP tools.
+Purpose: legacy helper to build a LangChain-style agent using MCP tools.
 
-Step‑by‑step:
+Step-by-step:
 - Import `ChatOllama` and LangChain agent utilities.
 - Instantiate `MCPServer`.
 - Convert MCP tool schemas to LangChain `Tool` wrappers.
@@ -97,18 +97,18 @@ Note: This is a different agent style than LangGraph, kept for experimentation.
 ---
 
 ### `agents/planner.py`
-Purpose: LLM‑based symbolic planning to produce `PlannedAction` lists.
+Purpose: LLM-based symbolic planning to produce `PlannedAction` lists.
 
 Key blocks:
 - `PlannedAction` enum = symbolic actions (no side effects).
 - `AgentPlan` dataclass = output of planning.
 - `model`: ChatOllama for planning.
-- `SYSTEM_PROMPT`: strict “return JSON array only”.
-- `GOAL_ACTION_MAP`: maps `AgentGoal` → allowed actions.
+- `SYSTEM_PROMPT`: strict "return JSON array only".
+- `GOAL_ACTION_MAP`: maps `AgentGoal` -> allowed actions.
 - `plan_actions(...)`: builds prompt with world state + allowed actions, calls LLM,
   parses JSON, filters actions to allowed, returns `AgentPlan`.
 
-Architectural intent: separate “plan” from “execute” to keep engine deterministic.
+Architectural intent: separate "plan" from "execute" to keep engine deterministic.
 
 ---
 
@@ -118,7 +118,7 @@ Exports the agent class and graph builder.
 ---
 
 ### `agents/instrument_specialist/state.py`
-Re‑exports `InstrumentAgentState` and `default_instrument_state` from shared state.
+Re-exports `InstrumentAgentState` and `default_instrument_state` from shared state.
 
 ---
 
@@ -134,11 +134,13 @@ Walkthrough:
   - After `read_context`: `decide_tool` if phase == "tool", else `observe`.
   - After `apply_tool`: end if phase == "tool", else `observe`.
 - Linear edges:
-  - `decide_tool → apply_tool`
-  - `observe → update_hypothesis → apply_crew_context`
+  - `decide_tool -> apply_tool`
+  - `observe -> update_hypothesis -> apply_crew_context`
 - Conditional:
   - `apply_crew_context` routes through `evaluate_concern` to `flag_event` or `END`.
-- Compile with `InMemorySaver` by default.
+- `build_instrument_graph(config=None, checkpointer=None)` accepts an optional config
+  (LangGraph API passes one) and compiles without a checkpointer unless explicitly given.
+- The module exports `instrument_graph` for `langgraph.json` discovery.
 
 Architectural intent: single graph supports two phases (`tool` vs `observe`) by routing.
 
@@ -160,7 +162,7 @@ Walkthrough:
   - returns the last `values` chunk (final state)
 - `act`: runs the graph in `"tool"` phase.
 - `observe`: runs in `"observe"` phase and returns `last_observation`.
-- `debug_render`: prints a human‑readable view of the internal state.
+- `debug_render`: prints a human-readable view of the internal state.
 
 Architectural intent: isolate graph execution and expose a small API to the runner.
 
@@ -185,12 +187,12 @@ Node by node:
 
 2) `decide_tool`
    - Deterministic.
-   - Applies rule‑based thresholds to choose a tool.
+   - Applies rule-based thresholds to choose a tool.
    - Stores `tool_decision` and `tool_reason`.
    - Emits decision + node output.
 
 3) `apply_tool`
-   - Deterministic side‑effect node.
+   - Deterministic side-effect node.
    - Reads `tool_decision`, calls the tool via MCP.
    - Emits tool call + result, and `node_end` with output payload.
 
@@ -214,7 +216,7 @@ Node by node:
 
 7) `evaluate_concern`
    - Deterministic router (not a node; used for conditional edges).
-   - If confidence high and contradictions >= 2 → "flag", else "end".
+   - If confidence high and contradictions >= 2 -> "flag", else "end".
 
 8) `flag_event`
    - Deterministic side effect.
@@ -230,7 +232,7 @@ Exports `CrewOfficerAgent` and `build_crew_graph`.
 ---
 
 ### `agents/crew_officer/state.py`
-Re‑exports `CrewOfficerState` and `default_crew_state`.
+Re-exports `CrewOfficerState` and `default_crew_state`.
 
 ---
 
@@ -243,10 +245,12 @@ Walkthrough:
 - Routing:
   - After `read_context`: `decide_tool` if phase == "tool" else `observe`.
   - After `apply_tool`: end if phase == "tool" else `observe`.
-- `observe → END`.
-- Compiled with `InMemorySaver`.
+- `observe -> END`.
+- `build_crew_graph(config=None, checkpointer=None)` accepts an optional config and
+  compiles without a checkpointer unless explicitly given.
+- The module exports `crew_graph` for `langgraph.json` discovery.
 
-Architectural intent: same phase‑based routing pattern, fewer cognitive nodes.
+Architectural intent: same phase-based routing pattern, fewer cognitive nodes.
 
 ---
 
@@ -277,7 +281,7 @@ Nodes:
 
 2) `decide_tool`
    - Deterministic.
-   - Rule‑based tool selection from stress/fatigue/tension/drift/solaris.
+   - Rule-based tool selection from stress/fatigue/tension/drift/solaris.
    - Saves `tool_decision` + `tool_reason`; emits output.
 
 3) `apply_tool`
@@ -287,7 +291,7 @@ Nodes:
 4) `observe`
    - LLM node.
    - Prompt uses crew metrics + drift + solaris intensity.
-   - Response is trimmed to 2–3 sentences.
+   - Response is trimmed to 2-3 sentences.
    - Emits input snapshot + observation output.
 
 Architectural intent: clear separation between deterministic control and LLM judgment.
@@ -297,13 +301,13 @@ Architectural intent: clear separation between deterministic control and LLM jud
 ## Architectural assumptions (implicit in the code)
 - **Phase drives routing**: `phase="tool"` vs `phase="observe"` is the switch.
 - **MCP is the world adapter**: nodes do not mutate GameState directly.
-- **LLM is not trusted for control**: tool decisions are rule‑based.
-- **Observations are narrative**: LLM outputs are used as human‑readable reports.
+- **LLM is not trusted for control**: tool decisions are rule-based.
+- **Observations are narrative**: LLM outputs are used as human-readable reports.
 - **Traceability first**: node input/output is logged for debugging and learning.
 
 ---
 
 ## Suggested next steps for experimentation
-1) Add prompt inputs to node `input` payloads if you want full “LLM input” transparency.  
-2) Convert MCP side effects into tasks if you plan to use durable execution.  
-3) Add tests for deterministic nodes (input → state update).  
+1) Add prompt inputs to node `input` payloads if you want full "LLM input" transparency.
+2) Convert MCP side effects into tasks if you plan to use durable execution.
+3) Add tests for deterministic nodes (input -> state update).
