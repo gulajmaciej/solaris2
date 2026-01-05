@@ -67,10 +67,12 @@ def read_context(state: CrewOfficerState) -> CrewOfficerState:
         event="node_end",
         phase=state["phase"],
         data={
-            "crew_stress": state["crew_stress"],
-            "crew_fatigue": state["crew_fatigue"],
-            "tension": state["tension"],
-            "solaris_intensity": state["solaris_intensity"],
+            "output": {
+                "crew_stress": state["crew_stress"],
+                "crew_fatigue": state["crew_fatigue"],
+                "tension": state["tension"],
+                "solaris_intensity": state["solaris_intensity"],
+            }
         },
     )
     return state
@@ -86,6 +88,15 @@ def decide_tool(state: CrewOfficerState) -> CrewOfficerState:
         node="decide_tool",
         event="node_start",
         phase=state["phase"],
+        data={
+            "input": {
+                "crew_stress": state["crew_stress"],
+                "crew_fatigue": state["crew_fatigue"],
+                "tension": state["tension"],
+                "solaris_intensity": state["solaris_intensity"],
+                "drift": state["drift"],
+            }
+        },
     )
 
     tool = None
@@ -128,6 +139,12 @@ def decide_tool(state: CrewOfficerState) -> CrewOfficerState:
         node="decide_tool",
         event="node_end",
         phase=state["phase"],
+        data={
+            "output": {
+                "tool": tool,
+                "reason": reason,
+            }
+        },
     )
     return state
 
@@ -137,14 +154,14 @@ def apply_tool(state: CrewOfficerState) -> CrewOfficerState:
     Applies the selected tool through MCP.
     """
     state["visited_nodes"].append("apply_tool")
+    tool = state.get("tool_decision")
     _emit_event(
         agent="crew_officer",
         node="apply_tool",
         event="node_start",
         phase=state["phase"],
+        data={"input": {"tool": tool}},
     )
-
-    tool = state.get("tool_decision")
     if tool:
         _emit_event(
             agent="crew_officer",
@@ -164,13 +181,20 @@ def apply_tool(state: CrewOfficerState) -> CrewOfficerState:
         )
     else:
         state["tool_applied"] = False
+        result = None
 
     _emit_event(
         agent="crew_officer",
         node="apply_tool",
         event="node_end",
         phase=state["phase"],
-        data={"tool_applied": state["tool_applied"]},
+        data={
+            "output": {
+                "tool": tool,
+                "tool_applied": state["tool_applied"],
+                "result": result,
+            }
+        },
     )
     return state
 
@@ -179,13 +203,21 @@ def observe(state: CrewOfficerState) -> CrewOfficerState:
     """
     Observational node for crew condition.
     """
+    state["visited_nodes"].append("observe")
     _emit_event(
         agent="crew_officer",
         node="observe",
         event="node_start",
         phase=state["phase"],
+        data={
+            "input": {
+                "crew_stress": state["crew_stress"],
+                "crew_fatigue": state["crew_fatigue"],
+                "drift": state["drift"],
+                "solaris_intensity": state["solaris_intensity"],
+            }
+        },
     )
-    state["visited_nodes"].append("observe")
 
     prompt = f"""
 You are a crew officer assessing human condition aboard a remote station.
@@ -233,6 +265,9 @@ Describe the crew condition.
         node="observe",
         event="node_end",
         phase=state["phase"],
-        data={"observation": response},
+        data={
+            "observation": response,
+            "output": {"observation": response},
+        },
     )
     return state

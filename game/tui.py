@@ -14,7 +14,6 @@ from textual.widgets.option_list import Option
 
 from agents.catalog import get_agent_spec
 from agents.config import AgentGoal, PriorityLevel
-from game.agent_events import format_agent_event
 from game.decision import PlayerDecision
 from game.simulation import SimulationRunner
 
@@ -71,13 +70,13 @@ class SolarisTUI(App[None]):
         layout: horizontal;
     }
     #status-panel {
-        width: 50%;
+        width: 40%;
         border: solid $border;
         padding: 1;
         align: left top;
     }
     #world-panel {
-        width: 50%;
+        width: 60%;
         border: solid $border;
         padding: 1;
     }
@@ -125,6 +124,7 @@ class SolarisTUI(App[None]):
         self._game_over = False
         self._terminal_lines: list[str] = []
         self._turn_agent_events: dict[str, dict[str, str]] = {}
+        self._last_node_by_agent: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
         with Container(id="root"):
@@ -183,13 +183,11 @@ class SolarisTUI(App[None]):
             self._append_log_line(line)
 
     def _on_agent_event(self, event: dict) -> None:
-        formatted = format_agent_event(event)
-        if not formatted:
-            return
         agent_id = event.get("agent")
         node = event.get("node")
         event_type = event.get("event")
         data = event.get("data") or {}
+
         if agent_id and event_type:
             entry = self._turn_agent_events.setdefault(agent_id, {})
             if event_type == "decision":
@@ -200,22 +198,54 @@ class SolarisTUI(App[None]):
             elif event_type == "tool_result":
                 entry["tool_result"] = data.get("tool") or "unknown"
 
-        _, message = formatted
-        if (
-            agent_id == "crew_officer"
-            and event_type == "node_end"
-            and node == "observe"
-        ):
-            self.call_from_thread(self._append_log_line, "")
-        self.call_from_thread(self._append_log_line, message)
+        if not agent_id or not node or not event_type:
+            return
+
+        label = agent_id.replace("_", " ").upper()
+        node_kind = self._node_kind(node)
+
+        if event_type == "node_start":
+            prev = self._last_node_by_agent.get(agent_id)
+            if prev and prev != node:
+                self.call_from_thread(
+                    self._append_log_line,
+                    f"[{label}] EDGE {prev} -> {node}",
+                )
+            self._last_node_by_agent[agent_id] = node
+
+            input_data = data.get("input")
+            if input_data:
+                rendered = self._format_kv(input_data)
+                self.call_from_thread(
+                    self._append_log_line,
+                    f"[{label}] {node} ({node_kind}) input: {rendered}",
+                )
+            else:
+                self.call_from_thread(
+                    self._append_log_line,
+                    f"[{label}] {node} ({node_kind}) input: -",
+                )
+            return
+
+        if event_type == "node_end":
+            output_data = data.get("output")
+            if output_data:
+                rendered = self._format_kv(output_data)
+                self.call_from_thread(
+                    self._append_log_line,
+                    f"[{label}] {node} ({node_kind}) output: {rendered}",
+                )
+            else:
+                self.call_from_thread(
+                    self._append_log_line,
+                    f"[{label}] {node} ({node_kind}) output: -",
+                )
 
     def _current_agent_id(self) -> str:
         return self._agent_ids[self._current_agent_index]
 
     def _update_decision_header(self) -> None:
         agent_id = self._current_agent_id()
-        cfg = self._runner.registry.get_config(agent_id)
-        phase_label = "GOAL" if self._decision_phase == GOAL_PHASE else "PRIORITY"
         header = f"Agent: {agent_id}"
         self.query_one("#decision-title", Static).update(header)
 
@@ -311,6 +341,7 @@ class SolarisTUI(App[None]):
             return
         self._running_turn = True
         self._turn_agent_events = {}
+        self._last_node_by_agent = {}
         option_list = self.query_one("#decision-list", OptionList)
         option_list.disabled = True
         self._append_log_line("")
@@ -331,7 +362,7 @@ class SolarisTUI(App[None]):
         self._set_terminal_loading(False)
 
         turn_done = result.state.turn - 1
-        self._append_turn_summary(result, turn_done)
+        self._append_log_line(f"[SYSTEM] Turn {turn_done} complete.")
         self._update_status_bar(result)
 
         if result.ending:
@@ -435,7 +466,7 @@ class SolarisTUI(App[None]):
     def _append_turn_summary(self, result, turn_done: int) -> None:
         state = result.state
         self._append_log_line("")
-        self._append_log_line(f"TURN {turn_done} — AGENT ACTIONS")
+        self._append_log_line(f"TURN {turn_done} - AGENT ACTIONS")
 
         for agent_id in self._agent_ids:
             label = agent_id.replace("_", " ").title()
@@ -486,6 +517,35 @@ class SolarisTUI(App[None]):
         if len(first_line) > 120:
             return first_line[:117] + "..."
         return first_line
+
+    def _node_kind(self, node: str) -> str:
+        llm_nodes = {
+            "observe",
+            "update_hypothesis",
+        }
+        return "LLM" if node in llm_nodes else "deterministic"
+
+    def _format_kv(self, payload: dict) -> str:
+        parts = []
+        for key in sorted(payload.keys()):
+            value = payload[key]
+            parts.append(f"{key}={self._format_value(value)}")
+        return ", ".join(parts)
+
+    def _format_value(self, value) -> str:
+        if isinstance(value, float):
+            return f"{value:.4f}"
+        if isinstance(value, dict):
+            return "{" + self._format_kv(value) + "}"
+        if isinstance(value, str):
+            return f"\"{self._compact_text(value)}\""
+        return str(value)
+
+    def _compact_text(self, text: str, limit: int = 120) -> str:
+        single = " ".join(text.split())
+        if len(single) <= limit:
+            return single
+        return single[: limit - 3] + "..."
 
     def _update_world_bar(self, result) -> None:
         flags = result.state.flags

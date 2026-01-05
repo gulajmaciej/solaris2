@@ -76,11 +76,14 @@ def read_context(state: InstrumentAgentState) -> InstrumentAgentState:
         event="node_end",
         phase=state["phase"],
         data={
-            "ocean_activity": state["ocean_activity"],
-            "ocean_instability": state["ocean_instability"],
-            "crew_fatigue": state["crew_fatigue"],
-            "station_power_level": state["station_power_level"],
-            "tension": state["tension"],
+            "output": {
+                "ocean_activity": state["ocean_activity"],
+                "ocean_instability": state["ocean_instability"],
+                "crew_fatigue": state["crew_fatigue"],
+                "station_power_level": state["station_power_level"],
+                "tension": state["tension"],
+                "solaris_intensity": state["solaris_intensity"],
+            }
         },
     )
     return state
@@ -96,6 +99,14 @@ def decide_tool(state: InstrumentAgentState) -> InstrumentAgentState:
         node="decide_tool",
         event="node_start",
         phase=state["phase"],
+        data={
+            "input": {
+                "ocean_activity": state["ocean_activity"],
+                "ocean_instability": state["ocean_instability"],
+                "crew_fatigue": state["crew_fatigue"],
+                "station_power_level": state["station_power_level"],
+            }
+        },
     )
 
     tool = None
@@ -138,6 +149,12 @@ def decide_tool(state: InstrumentAgentState) -> InstrumentAgentState:
         node="decide_tool",
         event="node_end",
         phase=state["phase"],
+        data={
+            "output": {
+                "tool": tool,
+                "reason": reason,
+            }
+        },
     )
     return state
 
@@ -147,14 +164,14 @@ def apply_tool(state: InstrumentAgentState) -> InstrumentAgentState:
     Applies the selected tool through MCP.
     """
     state["visited_nodes"].append("apply_tool")
+    tool = state.get("tool_decision")
     _emit_event(
         agent="instrument_specialist",
         node="apply_tool",
         event="node_start",
         phase=state["phase"],
+        data={"input": {"tool": tool}},
     )
-
-    tool = state.get("tool_decision")
     if tool:
         _emit_event(
             agent="instrument_specialist",
@@ -174,13 +191,20 @@ def apply_tool(state: InstrumentAgentState) -> InstrumentAgentState:
         )
     else:
         state["tool_applied"] = False
+        result = None
 
     _emit_event(
         agent="instrument_specialist",
         node="apply_tool",
         event="node_end",
         phase=state["phase"],
-        data={"tool_applied": state["tool_applied"]},
+        data={
+            "output": {
+                "tool": tool,
+                "tool_applied": state["tool_applied"],
+                "result": result,
+            }
+        },
     )
     return state
 
@@ -190,15 +214,22 @@ def observe(state: InstrumentAgentState) -> InstrumentAgentState:
     Perceptual node.
     Interprets raw sensor data and produces a linguistic observation.
     """
+    state["visited_nodes"].append("observe")
+
+    data = mcp.call_tool("read_ocean_state", {})
     _emit_event(
         agent="instrument_specialist",
         node="observe",
         event="node_start",
         phase=state["phase"],
+        data={
+            "input": {
+                "activity": data["activity"],
+                "instability": data["instability"],
+                "hypothesis": state["hypothesis"],
+            }
+        },
     )
-    state["visited_nodes"].append("observe")
-
-    data = mcp.call_tool("read_ocean_state", {})
 
     prompt = f"""
 You are analyzing sensor data from an alien ocean.
@@ -226,7 +257,10 @@ Form a concise observation using the scale labels accurately.
         node="observe",
         event="node_end",
         phase=state["phase"],
-        data={"observation": observation},
+        data={
+            "observation": observation,
+            "output": {"observation": observation},
+        },
     )
     return state
 
@@ -242,6 +276,12 @@ def update_hypothesis(state: InstrumentAgentState) -> InstrumentAgentState:
         node="update_hypothesis",
         event="node_start",
         phase=state["phase"],
+        data={
+            "input": {
+                "observation": state["last_observation"],
+                "hypothesis": state["hypothesis"],
+            }
+        },
     )
     state["visited_nodes"].append("update_hypothesis")
 
@@ -304,9 +344,12 @@ Respond with exactly ONE word.
         event="node_end",
         phase=state["phase"],
         data={
-            "hypothesis": new_hypothesis,
-            "confidence": state["confidence"],
-            "contradictions": state["contradictions"],
+            "output": {
+                "hypothesis": new_hypothesis,
+                "relation": relation,
+                "confidence": state["confidence"],
+                "contradictions": state["contradictions"],
+            }
         },
     )
     return state
@@ -316,19 +359,27 @@ def apply_crew_context(state: InstrumentAgentState) -> InstrumentAgentState:
     """
     Applies crew condition to instrument confidence and contradictions.
     """
+    prev_confidence = state["confidence"]
+    prev_contradictions = state["contradictions"]
+    crew = mcp.call_tool("read_crew_state", {})
+    stress = crew["stress"]
+    fatigue = crew["fatigue"]
+
     _emit_event(
         agent="instrument_specialist",
         node="apply_crew_context",
         event="node_start",
         phase=state["phase"],
+        data={
+            "input": {
+                "crew_stress": stress,
+                "crew_fatigue": fatigue,
+                "confidence": prev_confidence,
+                "contradictions": prev_contradictions,
+            }
+        },
     )
     state["visited_nodes"].append("apply_crew_context")
-
-    crew = mcp.call_tool("read_crew_state", {})
-    stress = crew["stress"]
-    fatigue = crew["fatigue"]
-    prev_confidence = state["confidence"]
-    prev_contradictions = state["contradictions"]
 
     # Stress reduces confidence
     state["confidence"] *= max(
@@ -356,10 +407,14 @@ def apply_crew_context(state: InstrumentAgentState) -> InstrumentAgentState:
         event="node_end",
         phase=state["phase"],
         data={
-            "crew_stress": stress,
-            "crew_fatigue": fatigue,
-            "confidence_delta": state["crew_confidence_delta"],
-            "contradiction_delta": state["crew_contradiction_delta"],
+            "output": {
+                "crew_stress": stress,
+                "crew_fatigue": fatigue,
+                "confidence": state["confidence"],
+                "contradictions": state["contradictions"],
+                "confidence_delta": state["crew_confidence_delta"],
+                "contradiction_delta": state["crew_contradiction_delta"],
+            }
         },
     )
     return state
