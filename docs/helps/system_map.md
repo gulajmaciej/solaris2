@@ -6,7 +6,7 @@ This map shows the main feedback loops and how the world evolves each turn.
 Player Decisions
     |
     v
-Agent Tools (MCP) ---------> GameState
+Agent Tools (MCP, deterministic) -----> GameState (deltas applied)
     |
     v
 Agent Goals/Priorities -----> Conflict Matrix -----> Tension -----> Drift
@@ -21,7 +21,7 @@ Agent Goals/Priorities -----> Conflict Matrix -----> Tension -----> Drift
 Action Execution --------------> GameState ----------------------------+
     |
     v
-Observations (LLM agents read GameState + Drift + Solaris)
+Observations (LLM nodes read GameState + Drift + Solaris)
 
 Tension + Earth Pressure -> Solaris Intensity -> Observation tone
 ```

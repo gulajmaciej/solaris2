@@ -13,7 +13,11 @@ allowed goals, and act/observe bindings.
 
 ## Run
 1. Install requirements
-2. Start the game loop
+2. Start the TUI (main entrypoint)
+
+python -m game.tui
+
+Optional: run the legacy CLI loop
 
 python game/loop.py
 
@@ -27,4 +31,4 @@ python game/loop.py
 ## Structure
 - `core/` world state and deterministic rules
 - `agents/` agent logic and planners
-- `game/` orchestration, CLI, and turn loop
+- `game/` orchestration and TUI (`game/tui.py` is the main entrypoint)

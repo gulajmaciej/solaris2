@@ -9,6 +9,9 @@ Inputs
 - CSV report from game/bot_run.py (turn-level metrics and per-agent columns).
 - Current tuning constants in core/actions.py, game/turn.py, core/tension.py,
   core/earth.py, and tool deltas in mcp/tools.py.
+- Deterministic bot decision rules in game/bot_run.py (choose_decisions,
+  plan_actions_rule). These are the behaviors reflected in bot_run CSVs.
+- Agent tool decision rules (agents/*/nodes.py) for mapping goals to tool usage.
 - World rules summary in docs/helps/solaris_parameters.csv and docs/helps/turn_pipeline.md.
 
 Workflow
@@ -53,6 +56,8 @@ Guardrails
 - Keep deltas small (5-20 percent per iteration).
 - Avoid simultaneous changes to more than two feedback loops.
 - Re-run bot_run for validation after each change.
+ - Remember bot_run uses deterministic planning; do not assume LLM behavior
+   for action selection in these reports.
 
 Suggested outputs (template)
 - Problem: ...
