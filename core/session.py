@@ -9,14 +9,11 @@ from agents.catalog import list_agent_specs
 
 class GameSession:
     """
-    Shared in-memory game session.
-    Used by:
-    - FastAPI (player turns)
-    - MCP Server (agent tools)
+    Shared in-memory game session for non-API usage.
     """
 
     def __init__(self):
-        self.thread_id = "api"
+        self.thread_id = "local"
         self.state = GameState.initial()
         self.tension = 0.0
         self.earth = EarthState()
@@ -35,5 +32,5 @@ class GameSession:
         }
 
 
-# SINGLETON (intentional for now)
+# Singleton for tools and local runs.
 SESSION = GameSession()

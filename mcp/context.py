@@ -12,7 +12,7 @@ def get_session() -> Any:
     if _CURRENT_SESSION is not None:
         return _CURRENT_SESSION
 
-    # Fallback to the API singleton session if no context is set.
-    from api.state import SESSION
+    # Fallback to the local singleton session if no context is set.
+    from core.session import SESSION
 
     return SESSION
